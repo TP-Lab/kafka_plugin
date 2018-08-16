@@ -42,7 +42,6 @@ namespace eosio {
 
     static appbase::abstract_plugin &_kafka_plugin = app().register_plugin<kafka_plugin>();
 
-
     class kafka_plugin_impl {
     public:
         kafka_plugin_impl();
@@ -450,7 +449,6 @@ namespace eosio {
         }
     }
 
-
     void kafka_plugin_impl::init() {
 
         ilog("starting kafka plugin thread");
@@ -459,7 +457,7 @@ namespace eosio {
     }
 
 ////////////
-// mongo_db_plugin
+// kafka_plugin
 ////////////
 
     kafka_plugin::kafka_plugin()
@@ -470,7 +468,6 @@ namespace eosio {
     }
 
     void kafka_plugin::set_program_options(options_description &cli, options_description &cfg) {
-
         cfg.add_options()
                 ("accept_trx_topic", bpo::value<std::string>(),
                  "The topic for accepted transaction.")
@@ -478,7 +475,6 @@ namespace eosio {
                  "The topic for appiled transaction.")
                 ("kafka-uri,k", bpo::value<std::string>(),
                  "the kafka brokers uri, as 192.168.31.225:9092");
-
     }
 
     void kafka_plugin::plugin_initialize(const variables_map &options) {
