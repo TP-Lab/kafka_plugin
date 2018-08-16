@@ -1,0 +1,53 @@
+# maven ignore
+target/
+
+# eclipse ignore
+.settings/
+.project
+.classpath
+
+# idea ignore
+.idea/
+*.ipr
+*.iml
+*.iws
+
+# temp ignore
+*.log
+*.cache
+*.diff
+*.patch
+*.tmp
+
+# py
+*.pyc
+local/
+include/
+logs/
+
+# system ignore
+.DS_Store
+Thumbs.db
+
+# package ignore (optional)
+# *.jar
+# *.war
+# *.zip
+# *.tar
+# *.tar.gz
+
+###
+dependency-reduced-pom.xml
+
+tb.eos_trxsave_task.s
+glide.lock
+xlsoa/
+check_service.sh
+monitor_service.sh
+s.sh
+start_service.sh
+stop_service.sh
+
+docker-compose.yml
+
+cmake-build-debug/
