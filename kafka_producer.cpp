@@ -155,7 +155,7 @@ int trx_kafka_sendmsg(int trxtype, char *msgstr) {
             goto retry;
         }
     } else {
-        fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt));
+//        fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt));
     }
 
     rd_kafka_poll(rk, 0);
