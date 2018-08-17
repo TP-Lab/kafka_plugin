@@ -40,7 +40,8 @@ namespace eosio {
     using chain::transaction_id_type;
     using chain::packed_transaction;
 
-    static appbase::abstract_plugin &_kafka_plugin = app().register_plugin<kafka_plugin>();
+static appbase::abstract_plugin& _kafka_plugin = app().register_plugin<kafka_plugin>();
+using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     class kafka_plugin_impl {
     public:
@@ -118,6 +119,7 @@ namespace eosio {
         static const std::string trans_traces_col;
         static const std::string actions_col;
         static const std::string accounts_col;
+        kafka_producer_ptr producer;
     };
 
     const account_name kafka_plugin_impl::newaccount = "newaccount";
@@ -174,8 +176,6 @@ namespace eosio {
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
         try {
             auto &chain = chain_plug->chain();
-//      elog("-------blocknum:${e}------------",("e",chain.pending_block_state()->block_num));
-            //    elog("-------timestamp:${e}-----------",("e", chain.pending_block_time()));
             trasaction_info_st transactioninfo = trasaction_info_st{
                     .block_number = chain.pending_block_state()->block_num,
                     .block_time = chain.pending_block_time(),
@@ -223,7 +223,6 @@ namespace eosio {
 
             while (true) {
                 boost::mutex::scoped_lock lock(mtx);
-//		 elog("--------enter consume_blocks---------");
                 while (transaction_metadata_queue.empty() &&
                        transaction_trace_queue.empty() &&
                        block_state_queue.empty() &&
@@ -231,7 +230,6 @@ namespace eosio {
                        !done) {
                     condition.wait(lock);
                 }
-                //       elog("--------next consume_blocks---------");
                 // capture for processing
                 size_t transaction_metadata_size = transaction_metadata_queue.size();
                 if (transaction_metadata_size > 0) {
@@ -243,7 +241,7 @@ namespace eosio {
                     transaction_trace_process_queue = move(transaction_trace_queue);
                     transaction_trace_queue.clear();
                 }
-#if 1
+
                 size_t block_state_size = block_state_queue.size();
                 if (block_state_size > 0) {
                     block_state_process_queue = move(block_state_queue);
@@ -254,7 +252,7 @@ namespace eosio {
                     irreversible_block_state_process_queue = move(irreversible_block_state_queue);
                     irreversible_block_state_queue.clear();
                 }
-#endif
+
                 lock.unlock();
 
                 // warn if queue size greater than 75%
@@ -266,7 +264,7 @@ namespace eosio {
                 } else if (done) {
                     ilog("draining queue, size: ${q}", ("q", transaction_metadata_size + transaction_trace_size));
                 }
-//		wlog("process_accepted_transaction");
+
                 // process transactions
                 while (!transaction_metadata_process_queue.empty()) {
                     const auto &t = transaction_metadata_process_queue.front();
@@ -274,28 +272,25 @@ namespace eosio {
                     transaction_metadata_process_queue.pop_front();
                 }
 
-//		 wlog("process_applied_transaction");
                 while (!transaction_trace_process_queue.empty()) {
                     const auto &t = transaction_trace_process_queue.front();
                     process_applied_transaction(t);
                     transaction_trace_process_queue.pop_front();
                 }
-#if 1
-//		wlog("process blocks");
+
                 // process blocks
                 while (!block_state_process_queue.empty()) {
                     const auto &bs = block_state_process_queue.front();
                     process_accepted_block(bs);
                     block_state_process_queue.pop_front();
                 }
-//		wlog("process irreversible blocks");
+
                 // process irreversible blocks
                 while (!irreversible_block_state_process_queue.empty()) {
                     const auto &bs = irreversible_block_state_process_queue.front();
                     process_irreversible_block(bs);
                     irreversible_block_state_process_queue.pop_front();
                 }
-#endif
 
                 if (transaction_metadata_size == 0 &&
                     transaction_trace_size == 0 &&
@@ -379,75 +374,49 @@ namespace eosio {
 
     void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
 
+   const auto& trx = t->trx;
+   string trx_json = fc::json::to_string( trx );
+   producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
 
-        const auto trx_id = t->id;
-        const auto trx_id_str = trx_id.str();
-        const auto &trx = t->trx;
-        const chain::transaction_header &trx_header = trx;
-
-        bool actions_to_write = false;
-        string trx_header_json = fc::json::to_string(trx);
-        trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char *) trx_header_json.c_str());
-//   elog("##########_process_ACCEPT_transaction###########");
-    }
+}
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
 
-        // elog("+++++number:${e}",("e",t.block_number));
-        // ostringstream oss;
-        //char blockstr[64];
-        //char timestr[64];
-        //sprintf(blockstr,"%lu",t.block_number);
-        //sprintf(timestr,"%lu",t.block_time);
-        uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
+   uint64_t time = (t.block_time.time_since_epoch().count()/1000);
         string transaction_metadata_json =
                 "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
                 ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
+   producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
 
-        trx_kafka_sendmsg(KAFKA_TRX_APPLIED, (char *) transaction_metadata_json.c_str());
+}
 
-        // elog("=========_process_applied_transaction===========");
-        // elog("jason:${e}",("e",transaction_metadata_json));
-    }
+void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
 
-    void kafka_plugin_impl::_process_accepted_block(const chain::block_state_ptr &bs) {
-        //string blockstr;
-//	auto block_num = bs->block_num;
-//	if(block_num<2)return;
-//	auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-        //       std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
-//	elog("now == $(e)",("e",now));
-        //string blockinfostr = "block number:" + std::to_string(block_num);
-//	elog("@@@@@@@@@@@@@@@@@@@@@process_accepted_block=======blockinfo@@@@@@@@@@@@@@@@");
-        //trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)blockinfostr.c_str());
-        string blockstate_json = fc::json::to_string(bs);
-        trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char *) blockstate_json.c_str());
-    }
+}
 
-    void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr &bs) {
-//	 auto block_num = bs->block_num;
-        //      if(block_num<2)return;
-//	string blockstate_json = fc::json::to_string(bs);
-//	elog("@@@@@@@@@@@@@@@@@@@@@process_irrecersible_block=======blockinfo@@@@@@@@@@@@@@@@");
-//        trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)blockstate_json.c_str());
-    }
+void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
+{
+}
 
-    kafka_plugin_impl::kafka_plugin_impl() {
-    }
+kafka_plugin_impl::kafka_plugin_impl()
+:producer(new kafka_producer)
+{
+}
 
-    kafka_plugin_impl::~kafka_plugin_impl() {
-        if (!startup) {
-            try {
-                ilog("mongo_db_plugin shutdown in process please be patient this can take a few minutes");
-                done = true;
-                condition.notify_one();
+kafka_plugin_impl::~kafka_plugin_impl() {
+   if (!startup) {
+      try {
+         ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
+         done = true;
+         condition.notify_one();
 
-                consume_thread.join();
-            } catch (std::exception &e) {
-                elog("Exception on mongo_db_plugin shutdown of consume thread: ${e}", ("e", e.what()));
-            }
-        }
-    }
+         consume_thread.join();
+         producer->trx_kafka_destroy();
+      } catch( std::exception& e ) {
+         elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
+      }
+   }
+}
 
     void kafka_plugin_impl::init() {
 
@@ -474,7 +443,12 @@ namespace eosio {
                 ("applied_trx_topic", bpo::value<std::string>(),
                  "The topic for appiled transaction.")
                 ("kafka-uri,k", bpo::value<std::string>(),
-                 "the kafka brokers uri, as 192.168.31.225:9092");
+                 "the kafka brokers uri, as 192.168.31.225:9092")
+                ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
+                 "The target queue size between nodeos and kafka plugin thread.")
+                ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
+                 "If specified then only abi data pushed to kafka until specified block is reached.")
+                 ;
     }
 
     void kafka_plugin::plugin_initialize(const variables_map &options) {
@@ -493,21 +467,26 @@ namespace eosio {
                 elog("brokers_str:${j}", ("j", brokers_str));
                 elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
                 elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
-                if (0 != trx_kafka_init(brokers_str, accept_trx_topic, applied_trx_topic)) {
-                    elog("trx_kafka_init fail");
-                } else {
-                    elog("trx_kafka_init ok");
-                }
-            }
+	   	  if(0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+	   	  	elog("trx_kafka_init fail");
+	   	  }else{
+		  	elog("trx_kafka_init ok");
+		  }
+   	  }
 
             if (options.count("kafka-uri")) {
                 ilog("initializing kafka_plugin");
                 my->configured = true;
 
-                //if( options.count( "abi-serializer-max-time-ms") == 0 ) {
-                // EOS_ASSERT(false, chain::plugin_config_exception, "--abi-serializer-max-time-ms required as default value not appropriate for parsing full blocks");
-                //}
-                // my->abi_serializer_max_time = app().get_plugin<chain_plugin>().get_abi_serializer_max_time();
+         if( options.count( "kafka-queue-size" )) {
+            my->queue_size = options.at( "kafka-queue-size" ).as<uint32_t>();
+         }
+         if( options.count( "kafka-block-start" )) {
+            my->start_block_num = options.at( "kafka-block-start" ).as<uint32_t>();
+         }
+         if( my->start_block_num == 0 ) {
+            my->start_block_reached = true;
+         }
 
                 // hook up to signals on controller
                 //chain_plugin* chain_plug = app().find_plugiin<chain_plugin>();
@@ -516,8 +495,7 @@ namespace eosio {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-                my->accepted_block_connection.emplace(
-                        chain.accepted_block.connect([&](const chain::block_state_ptr &bs) {
+         my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
                             my->accepted_block(bs);
                         }));
                 my->irreversible_block_connection.emplace(
@@ -533,15 +511,14 @@ namespace eosio {
                         chain.applied_transaction.connect([&](const chain::transaction_trace_ptr &t) {
                             my->applied_transaction(t);
                         }));
-                //elog("init---------");
                 my->init();
             } else {
-                wlog("eosio::mongo_db_plugin configured, but no --mongodb-uri specified.");
-                wlog("mongo_db_plugin disabled.");
+         wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
+         wlog( "kafka_plugin disabled." );
             }
 
-        }
-        FC_LOG_AND_RETHROW()
+   } 
+   FC_LOG_AND_RETHROW()
     }
 
     void kafka_plugin::plugin_startup() {
@@ -553,9 +530,8 @@ namespace eosio {
         my->irreversible_block_connection.reset();
         my->accepted_transaction_connection.reset();
         my->applied_transaction_connection.reset();
-
         my.reset();
-        trx_kafka_destroy();
+
     }
 
 } // namespace eosio
