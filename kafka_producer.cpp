@@ -80,10 +80,10 @@ namespace eosio {
     int kafka_producer::trx_kafka_sendmsg(int trxtype, char *msgstr) {
         rd_kafka_t *rk;
         rd_kafka_topic_t *rkt;
-        if (trxtype == KAFKA_TRX_ACCEPT) {
+        if (trxtype == KAFKA_TRX_ACCEPT && accept_rk!=NULL && accept_rkt!=NULL) {
             rk = accept_rk;
             rkt = accept_rkt;
-        } else if (trxtype == KAFKA_TRX_APPLIED) {
+        } else if (trxtype == KAFKA_TRX_APPLIED && applied_rk!=NULL && applied_rkt!=NULL) {
             rk = applied_rk;
             rkt = applied_rkt;
         } else {
