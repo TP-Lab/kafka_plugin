@@ -36,7 +36,6 @@ namespace eosio {
     using chain::transaction;
     using chain::signed_transaction;
     using chain::signed_block;
-    using chain::block_trace;
     using chain::transaction_id_type;
     using chain::packed_transaction;
 
@@ -374,21 +373,21 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
 
-   const auto& trx = t->trx;
-   string trx_json = fc::json::to_string( trx );
-   producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
+       const auto& trx = t->trx;
+       string trx_json = fc::json::to_string( trx );
+       producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
 
-}
+    }
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
 
-   uint64_t time = (t.block_time.time_since_epoch().count()/1000);
-        string transaction_metadata_json =
-                "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
-   producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
+       uint64_t time = (t.block_time.time_since_epoch().count()/1000);
+            string transaction_metadata_json =
+                    "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
+                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
+       producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
 
-}
+    }
 
 void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
 
