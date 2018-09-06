@@ -376,7 +376,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
        producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
-    
+
     }
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
@@ -386,36 +386,36 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
                     ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
        producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
-    
+
     }
 
-    void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) 
+    void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
     {
     }
-    
+
     void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
     {
     }
 
-kafka_plugin_impl::kafka_plugin_impl()
-:producer(new kafka_producer)
-{
-}
+    kafka_plugin_impl::kafka_plugin_impl()
+    :producer(new kafka_producer)
+    {
+    }
 
-kafka_plugin_impl::~kafka_plugin_impl() {
-   if (!startup) {
-      try {
-         ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
-         done = true;
-         condition.notify_one();
+    kafka_plugin_impl::~kafka_plugin_impl() {
+       if (!startup) {
+          try {
+             ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
+             done = true;
+             condition.notify_one();
 
-         consume_thread.join();
-         producer->trx_kafka_destroy();
-      } catch( std::exception& e ) {
-         elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
-      }
-   }
-}
+             consume_thread.join();
+             producer->trx_kafka_destroy();
+          } catch( std::exception& e ) {
+             elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
+          }
+       }
+    }
 
     void kafka_plugin_impl::init() {
 
@@ -454,6 +454,7 @@ kafka_plugin_impl::~kafka_plugin_impl() {
         char *accept_trx_topic = NULL;
         char *applied_trx_topic = NULL;
         char *brokers_str = NULL;
+
         try {
             if (options.count("kafka-uri")) {
                 brokers_str = (char *) (options.at("kafka-uri").as<std::string>().c_str());
@@ -466,26 +467,27 @@ kafka_plugin_impl::~kafka_plugin_impl() {
                 elog("brokers_str:${j}", ("j", brokers_str));
                 elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
                 elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
-	   	  if(0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
-	   	  	elog("trx_kafka_init fail");
-	   	  }else{
-		  	elog("trx_kafka_init ok");
-		  }
-   	  }
+
+                if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+                    elog("trx_kafka_init fail");
+                } else{
+                    elog("trx_kafka_init ok");
+                }
+            }
 
             if (options.count("kafka-uri")) {
                 ilog("initializing kafka_plugin");
                 my->configured = true;
 
-         if( options.count( "kafka-queue-size" )) {
-            my->queue_size = options.at( "kafka-queue-size" ).as<uint32_t>();
-         }
-         if( options.count( "kafka-block-start" )) {
-            my->start_block_num = options.at( "kafka-block-start" ).as<uint32_t>();
-         }
-         if( my->start_block_num == 0 ) {
-            my->start_block_reached = true;
-         }
+                if( options.count( "kafka-queue-size" )) {
+                    my->queue_size = options.at( "kafka-queue-size" ).as<uint32_t>();
+                }
+                if( options.count( "kafka-block-start" )) {
+                    my->start_block_num = options.at( "kafka-block-start" ).as<uint32_t>();
+                }
+                if( my->start_block_num == 0 ) {
+                    my->start_block_reached = true;
+                }
 
                 // hook up to signals on controller
                 //chain_plugin* chain_plug = app().find_plugiin<chain_plugin>();
@@ -494,9 +496,10 @@ kafka_plugin_impl::~kafka_plugin_impl() {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-         my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
+                my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
                             my->accepted_block(bs);
                         }));
+
                 my->irreversible_block_connection.emplace(
                         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
                             my->applied_irreversible_block(bs);
@@ -512,12 +515,13 @@ kafka_plugin_impl::~kafka_plugin_impl() {
                         }));
                 my->init();
             } else {
-         wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
-         wlog( "kafka_plugin disabled." );
+                wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
+                wlog( "kafka_plugin disabled." );
             }
 
-   } 
-   FC_LOG_AND_RETHROW()
+        }
+
+        FC_LOG_AND_RETHROW()
     }
 
     void kafka_plugin::plugin_startup() {
