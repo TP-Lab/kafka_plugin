@@ -23,6 +23,8 @@ edit /usr/local/eos/plugins/CMakeLists.txt:
 edit /usr/local/eos/programs/nodeos/CMakeLists.txt:
 #target_link_libraries( nodeos PRIVATE -Wl,${whole_archive_flag} kafka_plugin -Wl,${no_whole_archive_flag} )
 ```
+## How to setup on your nodeos
+Enable this plugin using --plugin option to nodeos or in your config.ini. Use nodeos --help to see options used by this plugin.
 
 ## Configuration
 Add the following to config.ini to enable the plugin:
