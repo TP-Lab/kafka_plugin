@@ -2,7 +2,7 @@
  *  @file
  *  @copyright defined in eos/LICENSE.txt
  */
-//
+
 #include <stdlib.h>
 #include <eosio/kafka_plugin/kafka_producer.hpp>
 #include <eosio/kafka_plugin/kafka_plugin.hpp>
@@ -375,7 +375,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
-       producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
+       producer->trx_kafka_sendmsg(KAFKA_ACCOUNT_CREATION,(char*)trx_json.c_str());
 
     }
 
@@ -384,8 +384,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
             string transaction_metadata_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
-       producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
+                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() + ",\"type\": \"applied\"" + "}";
+       producer->trx_kafka_sendmsg(KAFKA_GENERAL_TRX,(char*)transaction_metadata_json.c_str());
 
     }
 
@@ -437,10 +437,10 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void kafka_plugin::set_program_options(options_description &cli, options_description &cfg) {
         cfg.add_options()
-                ("accept_trx_topic", bpo::value<std::string>(),
-                 "The topic for accepted transaction.")
-                ("applied_trx_topic", bpo::value<std::string>(),
-                 "The topic for appiled transaction.")
+                ("acc_topic", bpo::value<std::string>(),
+                 "The topic for new account creation")
+                ("trx_topic", bpo::value<std::string>(),
+                 "The topic for transactions.")
                 ("kafka-uri,k", bpo::value<std::string>(),
                  "the kafka brokers uri, as 192.168.31.225:9092")
                 ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
@@ -451,24 +451,24 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
     void kafka_plugin::plugin_initialize(const variables_map &options) {
-        char *accept_trx_topic = NULL;
-        char *applied_trx_topic = NULL;
+        char *acc_topic = NULL;
+        char *trx_topic = NULL;
         char *brokers_str = NULL;
 
         try {
             if (options.count("kafka-uri")) {
                 brokers_str = (char *) (options.at("kafka-uri").as<std::string>().c_str());
-                if (options.count("accept_trx_topic") != 0) {
-                    accept_trx_topic = (char *) (options.at("accept_trx_topic").as<std::string>().c_str());
+                if (options.count("acc_topic") != 0) {
+                    acc_topic = (char *) (options.at("acc_topic").as<std::string>().c_str());
                 }
-                if (options.count("applied_trx_topic") != 0) {
-                    applied_trx_topic = (char *) (options.at("applied_trx_topic").as<std::string>().c_str());
+                if (options.count("trx_topic") != 0) {
+                    trx_topic = (char *) (options.at("trx_topic").as<std::string>().c_str());
                 }
                 elog("brokers_str:${j}", ("j", brokers_str));
-                elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
-                elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
+                elog("acc_topic:${j}", ("j", acc_topic));
+                elog("trx_topic:${j}", ("j", trx_topic));
 
-                if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+                if (0!=my->producer->trx_kafka_init(brokers_str,acc_topic,trx_topic)){
                     elog("trx_kafka_init fail");
                 } else{
                     elog("trx_kafka_init ok");
