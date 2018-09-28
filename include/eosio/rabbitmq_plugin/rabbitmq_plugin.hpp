@@ -12,19 +12,6 @@ namespace eosio {
 
 using rabbitmq_plugin_impl_ptr = std::shared_ptr<class rabbitmq_plugin_impl>;
 
-/**
- * Provides persistence to MongoDB for:
- * accounts
- * actions
- * block_states
- * blocks
- * transaction_traces
- * transactions
- *
- *   See data dictionary (DB Schema Definition - EOS API) for description of MongoDB schema.
- *
- *   If cmake -DBUILD_rabbitmq_plugin=true  not specified then this plugin not compiled/included.
- */
 class rabbitmq_plugin : public plugin<rabbitmq_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES((chain_plugin))
