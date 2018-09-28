@@ -43,7 +43,7 @@ class rabbitmq_producer {
 
         };
         
-        int trx_rabbitmq_init(std::string hostname, int port, std::string username, std::string password);
+        int trx_rabbitmq_init(std::string hostname, uint32_t port, std::string username, std::string password);
 
         void trx_rabbitmq_sendmsg(std::string routingKey, std::string exchange, std::string msgstr);
 
@@ -58,7 +58,7 @@ class rabbitmq_producer {
         std::string m_password = "";
         std::string m_username = "";
         std::string m_hostname = "";
-        int m_port = 0;
+        uint32_t m_port = 0;
 
     };
 }

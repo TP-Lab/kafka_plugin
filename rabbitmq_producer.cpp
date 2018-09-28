@@ -75,7 +75,7 @@ void exception_on_amqp_error(amqp_rpc_reply_t x, char const *context) {
 }
 
 
-int rabbitmq_producer::trx_rabbitmq_init(std::string hostname, int port, std::string username,std::string password){
+int rabbitmq_producer::trx_rabbitmq_init(std::string hostname, uint32_t port, std::string username,std::string password){
 
   conn = amqp_new_connection();
   m_hostname = hostname;

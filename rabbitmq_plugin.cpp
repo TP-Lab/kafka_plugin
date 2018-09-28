@@ -106,12 +106,12 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
         boost::thread consume_thread;
         boost::atomic<bool> done{false};
         boost::atomic<bool> startup{true};
-        fc::optional<chain::chain_id_type> chain_id;
+        // fc::optional<chain::chain_id_type> chain_id;
 
 
         rabbitmq_producer_ptr producer;
-        std::string m_accept_trx_exchange = NULL;
-        std::string m_applied_trx_exchange = NULL;
+        std::string m_accept_trx_exchange = "";
+        std::string m_applied_trx_exchange = "";
         
     };
 
@@ -433,7 +433,7 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                  "the rabbitmq password (e.g. guest)")
                 ("rabbitmq-hostname", bpo::value<std::string>()->default_value("127.0.0.1"),
                  "the rabbitmq hostname (e.g. localhost or 127.0.0.1)")
-                ("rabbitmq-port", bpo::value<int>()->default_value(5672),
+                ("rabbitmq-port", bpo::value<uint32_t>()->default_value(5672),
                  "the rabbitmq port (e.g. 5672)")                 
                 ("rabbitmq-queue-size", bpo::value<uint32_t>()->default_value(256),
                  "The target queue size between nodeos and rabbitmq plugin thread.")
@@ -451,12 +451,12 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                 auto hostname = options.at("rabbitmq-hostname").as<std::string>();
                 auto username = options.at("rabbitmq-username").as<std::string>();
                 auto password = options.at("rabbitmq-password").as<std::string>();
-                int port = options.at("rabbitmq-port").as<int>();
+                uint32_t port = options.at("rabbitmq-port").as<uint32_t>();
                 if (options.count("rabbitmq-accept-trx-exchange") != 0) {
                     my->m_accept_trx_exchange = options.at("rabbitmq-accept-trx-exchange").as<std::string>();
                 }
                 if (options.count("rabbitmq-applied-trx-exchange") != 0) {
-                    my->m_applied_trx_exchange = options.at("applied_trx_exchange").as<std::string>();
+                    my->m_applied_trx_exchange = options.at("rabbitmq-applied-trx-exchange").as<std::string>();
                 }
                 
                 if (0!=my->producer->trx_rabbitmq_init(hostname, port, username, password)){
@@ -479,12 +479,10 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                 }
 
                 // hook up to signals on controller
-                //chain_plugin* chain_plug = app().find_plugiin<chain_plugin>();
                 my->chain_plug = app().find_plugin<chain_plugin>();
                 EOS_ASSERT(my->chain_plug, chain::missing_chain_plugin_exception, "");
                 auto &chain = my->chain_plug->chain();
-                my->chain_id.emplace(chain.get_chain_id());
-
+                
                 my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
                             my->accepted_block(bs);
                         }));
@@ -507,9 +505,7 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                 wlog( "eosio::rabbitmq_plugin configured, but no --rabbitmq-hostname specified." );
                 wlog( "rabbitmq_plugin disabled." );
             }
-
         }
-
         FC_LOG_AND_RETHROW()
     }
 
