@@ -107,29 +107,15 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
         boost::atomic<bool> done{false};
         boost::atomic<bool> startup{true};
         fc::optional<chain::chain_id_type> chain_id;
-        fc::microseconds abi_serializer_max_time;
 
-        static const account_name newaccount;
-        static const account_name setabi;
 
-        static const std::string block_states_col;
-        static const std::string blocks_col;
-        static const std::string trans_col;
-        static const std::string trans_traces_col;
-        static const std::string actions_col;
-        static const std::string accounts_col;
         rabbitmq_producer_ptr producer;
+        std::string m_accept_trx_exchange = NULL;
+        std::string m_applied_trx_exchange = NULL;
+        
     };
 
-    const account_name rabbitmq_plugin_impl::newaccount = "newaccount";
-    const account_name rabbitmq_plugin_impl::setabi = "setabi";
 
-    const std::string rabbitmq_plugin_impl::block_states_col = "block_states";
-    const std::string rabbitmq_plugin_impl::blocks_col = "blocks";
-    const std::string rabbitmq_plugin_impl::trans_col = "transactions";
-    const std::string rabbitmq_plugin_impl::trans_traces_col = "transaction_traces";
-    const std::string rabbitmq_plugin_impl::actions_col = "actions";
-    const std::string rabbitmq_plugin_impl::accounts_col = "accounts";
 
 
     namespace {
@@ -312,8 +298,9 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
 
     void rabbitmq_plugin_impl::process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
         try {
-            // always call since we need to capture setabi on accounts even if not storing transactions
-            _process_accepted_transaction(t);
+            if (start_block_reached) {
+                _process_accepted_transaction(t);
+            }
         } catch (fc::exception &e) {
             elog("FC Exception while processing accepted transaction metadata: ${e}", ("e", e.to_detail_string()));
         } catch (std::exception &e) {
@@ -375,8 +362,7 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
-       producer->trx_rabbitmq_sendmsg(RABBITMQ_TRX_ACCEPT,(char*)trx_json.c_str());
-
+       producer->trx_rabbitmq_sendmsg("", m_accept_trx_exchange,trx_json);
     }
 
     void rabbitmq_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
@@ -385,7 +371,7 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
             string transaction_metadata_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
                     ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
-       producer->trx_rabbitmq_sendmsg(RABBITMQ_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
+       producer->trx_rabbitmq_sendmsg("", m_applied_trx_exchange,transaction_metadata_json);
 
     }
 
@@ -437,45 +423,48 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
 
     void rabbitmq_plugin::set_program_options(options_description &cli, options_description &cfg) {
         cfg.add_options()
-                ("accept_trx_topic", bpo::value<std::string>(),
-                 "The topic for accepted transaction.")
-                ("applied_trx_topic", bpo::value<std::string>(),
-                 "The topic for appiled transaction.")
-                ("rabbitmq-uri,k", bpo::value<std::string>(),
-                 "the rabbitmq brokers uri, as 192.168.31.225:9092")
+                ("rabbitmq-accept-trx-exchange", bpo::value<std::string>()->default_value("trx.accepted"),
+                 "The exchange for accepted transaction.")
+                ("rabbitmq-applied-trx-exchange", bpo::value<std::string>()->default_value("trx.applied"),
+                 "The exchange for appiled transaction.")
+                ("rabbitmq-username", bpo::value<std::string>()->default_value("guest"),
+                 "the rabbitmq username (e.g. guest)")
+                ("rabbitmq-password", bpo::value<std::string>()->default_value("guest"),
+                 "the rabbitmq password (e.g. guest)")
+                ("rabbitmq-hostname", bpo::value<std::string>()->default_value("127.0.0.1"),
+                 "the rabbitmq hostname (e.g. localhost or 127.0.0.1)")
+                ("rabbitmq-port", bpo::value<int>()->default_value(5672),
+                 "the rabbitmq port (e.g. 5672)")                 
                 ("rabbitmq-queue-size", bpo::value<uint32_t>()->default_value(256),
                  "The target queue size between nodeos and rabbitmq plugin thread.")
                 ("rabbitmq-block-start", bpo::value<uint32_t>()->default_value(256),
-                 "If specified then only abi data pushed to rabbitmq until specified block is reached.")
+                 "If specified then no data is pushed to rabbitmq until specified block is reached.")
                  ;
     }
 
     void rabbitmq_plugin::plugin_initialize(const variables_map &options) {
-        char *accept_trx_topic = NULL;
-        char *applied_trx_topic = NULL;
-        char *brokers_str = NULL;
+
+
 
         try {
-            if (options.count("rabbitmq-uri")) {
-                brokers_str = (char *) (options.at("rabbitmq-uri").as<std::string>().c_str());
-                if (options.count("accept_trx_topic") != 0) {
-                    accept_trx_topic = (char *) (options.at("accept_trx_topic").as<std::string>().c_str());
+            if (options.count("rabbitmq-hostname")) {
+                auto hostname = options.at("rabbitmq-hostname").as<std::string>();
+                auto username = options.at("rabbitmq-username").as<std::string>();
+                auto password = options.at("rabbitmq-password").as<std::string>();
+                int port = options.at("rabbitmq-port").as<int>();
+                if (options.count("rabbitmq-accept-trx-exchange") != 0) {
+                    my->m_accept_trx_exchange = options.at("rabbitmq-accept-trx-exchange").as<std::string>();
                 }
-                if (options.count("applied_trx_topic") != 0) {
-                    applied_trx_topic = (char *) (options.at("applied_trx_topic").as<std::string>().c_str());
+                if (options.count("rabbitmq-applied-trx-exchange") != 0) {
+                    my->m_applied_trx_exchange = options.at("applied_trx_exchange").as<std::string>();
                 }
-                elog("brokers_str:${j}", ("j", brokers_str));
-                elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
-                elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
-
-                if (0!=my->producer->trx_rabbitmq_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+                
+                if (0!=my->producer->trx_rabbitmq_init(hostname, port, username, password)){
                     elog("trx_rabbitmq_init fail");
                 } else{
                     elog("trx_rabbitmq_init ok");
                 }
-            }
-
-            if (options.count("rabbitmq-uri")) {
+          
                 ilog("initializing rabbitmq_plugin");
                 my->configured = true;
 
@@ -515,7 +504,7 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                         }));
                 my->init();
             } else {
-                wlog( "eosio::rabbitmq_plugin configured, but no --rabbitmq-uri specified." );
+                wlog( "eosio::rabbitmq_plugin configured, but no --rabbitmq-hostname specified." );
                 wlog( "rabbitmq_plugin disabled." );
             }
 
