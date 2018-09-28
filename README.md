@@ -14,8 +14,8 @@ or
 ```
 git clone https://github.com/alanxz/rabbitmq-c.git
 cd rabbitmq-c/cmake
-cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..
-cmake --build . --config Release --target install
+cmake -DCMAKE_INSTALL_PREFIX=/usr ..
+sudo cmake --build . --config Release --target install
 ```
 
 ## Building the plugin [Install on your nodeos server]

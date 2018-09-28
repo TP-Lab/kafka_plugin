@@ -4,8 +4,8 @@
  */
 //
 #include <stdlib.h>
-#include <eosio/kafka_plugin/kafka_producer.hpp>
-#include <eosio/kafka_plugin/kafka_plugin.hpp>
+#include <eosio/rabbitmq_plugin/rabbitmq_producer.hpp>
+#include <eosio/rabbitmq_plugin/rabbitmq_plugin.hpp>
 
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/config.hpp>
@@ -39,14 +39,14 @@ namespace eosio {
     using chain::transaction_id_type;
     using chain::packed_transaction;
 
-static appbase::abstract_plugin& _kafka_plugin = app().register_plugin<kafka_plugin>();
-using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
+static appbase::abstract_plugin& _rabbitmq_plugin = app().register_plugin<rabbitmq_plugin>();
+using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
 
-    class kafka_plugin_impl {
+    class rabbitmq_plugin_impl {
     public:
-        kafka_plugin_impl();
+        rabbitmq_plugin_impl();
 
-        ~kafka_plugin_impl();
+        ~rabbitmq_plugin_impl();
 
         fc::optional<boost::signals2::scoped_connection> accepted_block_connection;
         fc::optional<boost::signals2::scoped_connection> irreversible_block_connection;
@@ -118,18 +118,18 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         static const std::string trans_traces_col;
         static const std::string actions_col;
         static const std::string accounts_col;
-        kafka_producer_ptr producer;
+        rabbitmq_producer_ptr producer;
     };
 
-    const account_name kafka_plugin_impl::newaccount = "newaccount";
-    const account_name kafka_plugin_impl::setabi = "setabi";
+    const account_name rabbitmq_plugin_impl::newaccount = "newaccount";
+    const account_name rabbitmq_plugin_impl::setabi = "setabi";
 
-    const std::string kafka_plugin_impl::block_states_col = "block_states";
-    const std::string kafka_plugin_impl::blocks_col = "blocks";
-    const std::string kafka_plugin_impl::trans_col = "transactions";
-    const std::string kafka_plugin_impl::trans_traces_col = "transaction_traces";
-    const std::string kafka_plugin_impl::actions_col = "actions";
-    const std::string kafka_plugin_impl::accounts_col = "accounts";
+    const std::string rabbitmq_plugin_impl::block_states_col = "block_states";
+    const std::string rabbitmq_plugin_impl::blocks_col = "blocks";
+    const std::string rabbitmq_plugin_impl::trans_col = "transactions";
+    const std::string rabbitmq_plugin_impl::trans_traces_col = "transaction_traces";
+    const std::string rabbitmq_plugin_impl::actions_col = "actions";
+    const std::string rabbitmq_plugin_impl::accounts_col = "accounts";
 
 
     namespace {
@@ -160,7 +160,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     }
 
-    void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
+    void rabbitmq_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
         try {
             queue(mtx, condition, transaction_metadata_queue, t, queue_size);
         } catch (fc::exception &e) {
@@ -172,7 +172,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
-    void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
+    void rabbitmq_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
         try {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
@@ -192,7 +192,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
-    void kafka_plugin_impl::applied_irreversible_block(const chain::block_state_ptr &bs) {
+    void rabbitmq_plugin_impl::applied_irreversible_block(const chain::block_state_ptr &bs) {
         try {
             queue(mtx, condition, irreversible_block_state_queue, bs, queue_size);
         } catch (fc::exception &e) {
@@ -205,7 +205,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
 
-    void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
+    void rabbitmq_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
             queue(mtx, condition, block_state_queue, bs, queue_size);
         } catch (fc::exception &e) {
@@ -217,7 +217,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
-    void kafka_plugin_impl::consume_blocks() {
+    void rabbitmq_plugin_impl::consume_blocks() {
         try {
 
             while (true) {
@@ -299,7 +299,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                     break;
                 }
             }
-            ilog("kafka_plugin consume thread shutdown gracefully");
+            ilog("rabbitmq_plugin consume thread shutdown gracefully");
         } catch (fc::exception &e) {
             elog("FC Exception while consuming block ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -310,7 +310,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
 
-    void kafka_plugin_impl::process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
+    void rabbitmq_plugin_impl::process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
         try {
             // always call since we need to capture setabi on accounts even if not storing transactions
             _process_accepted_transaction(t);
@@ -323,7 +323,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
-    void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
+    void rabbitmq_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
         try {
             if (start_block_reached) {
                 _process_applied_transaction(t);
@@ -338,7 +338,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
 
-    void kafka_plugin_impl::process_irreversible_block(const chain::block_state_ptr &bs) {
+    void rabbitmq_plugin_impl::process_irreversible_block(const chain::block_state_ptr &bs) {
         try {
             if (start_block_reached) {
                 _process_irreversible_block(bs);
@@ -352,7 +352,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
-    void kafka_plugin_impl::process_accepted_block(const chain::block_state_ptr &bs) {
+    void rabbitmq_plugin_impl::process_accepted_block(const chain::block_state_ptr &bs) {
         try {
             if (!start_block_reached) {
                 if (bs->block_num >= start_block_num) {
@@ -371,93 +371,93 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
-    void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
+    void rabbitmq_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
-       producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
+       producer->trx_rabbitmq_sendmsg(RABBITMQ_TRX_ACCEPT,(char*)trx_json.c_str());
 
     }
 
-    void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
+    void rabbitmq_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
 
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
             string transaction_metadata_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
                     ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
-       producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
+       producer->trx_rabbitmq_sendmsg(RABBITMQ_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
 
     }
 
-    void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
+    void rabbitmq_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
     {
     }
 
-    void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
+    void rabbitmq_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
     {
     }
 
-    kafka_plugin_impl::kafka_plugin_impl()
-    :producer(new kafka_producer)
+    rabbitmq_plugin_impl::rabbitmq_plugin_impl()
+    :producer(new rabbitmq_producer)
     {
     }
 
-    kafka_plugin_impl::~kafka_plugin_impl() {
+    rabbitmq_plugin_impl::~rabbitmq_plugin_impl() {
        if (!startup) {
           try {
-             ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
+             ilog( "rabbitmq_db_plugin shutdown in process please be patient this can take a few minutes" );
              done = true;
              condition.notify_one();
 
              consume_thread.join();
-             producer->trx_kafka_destroy();
+             producer->trx_rabbitmq_destroy();
           } catch( std::exception& e ) {
-             elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
+             elog( "Exception on rabbitmq_plugin shutdown of consume thread: ${e}", ("e", e.what()));
           }
        }
     }
 
-    void kafka_plugin_impl::init() {
+    void rabbitmq_plugin_impl::init() {
 
-        ilog("starting kafka plugin thread");
+        ilog("starting rabbitmq plugin thread");
         consume_thread = boost::thread([this] { consume_blocks(); });
         startup = false;
     }
 
 ////////////
-// kafka_plugin
+// rabbitmq_plugin
 ////////////
 
-    kafka_plugin::kafka_plugin()
-            : my(new kafka_plugin_impl) {
+    rabbitmq_plugin::rabbitmq_plugin()
+            : my(new rabbitmq_plugin_impl) {
     }
 
-    kafka_plugin::~kafka_plugin() {
+    rabbitmq_plugin::~rabbitmq_plugin() {
     }
 
-    void kafka_plugin::set_program_options(options_description &cli, options_description &cfg) {
+    void rabbitmq_plugin::set_program_options(options_description &cli, options_description &cfg) {
         cfg.add_options()
                 ("accept_trx_topic", bpo::value<std::string>(),
                  "The topic for accepted transaction.")
                 ("applied_trx_topic", bpo::value<std::string>(),
                  "The topic for appiled transaction.")
-                ("kafka-uri,k", bpo::value<std::string>(),
-                 "the kafka brokers uri, as 192.168.31.225:9092")
-                ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
-                 "The target queue size between nodeos and kafka plugin thread.")
-                ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
-                 "If specified then only abi data pushed to kafka until specified block is reached.")
+                ("rabbitmq-uri,k", bpo::value<std::string>(),
+                 "the rabbitmq brokers uri, as 192.168.31.225:9092")
+                ("rabbitmq-queue-size", bpo::value<uint32_t>()->default_value(256),
+                 "The target queue size between nodeos and rabbitmq plugin thread.")
+                ("rabbitmq-block-start", bpo::value<uint32_t>()->default_value(256),
+                 "If specified then only abi data pushed to rabbitmq until specified block is reached.")
                  ;
     }
 
-    void kafka_plugin::plugin_initialize(const variables_map &options) {
+    void rabbitmq_plugin::plugin_initialize(const variables_map &options) {
         char *accept_trx_topic = NULL;
         char *applied_trx_topic = NULL;
         char *brokers_str = NULL;
 
         try {
-            if (options.count("kafka-uri")) {
-                brokers_str = (char *) (options.at("kafka-uri").as<std::string>().c_str());
+            if (options.count("rabbitmq-uri")) {
+                brokers_str = (char *) (options.at("rabbitmq-uri").as<std::string>().c_str());
                 if (options.count("accept_trx_topic") != 0) {
                     accept_trx_topic = (char *) (options.at("accept_trx_topic").as<std::string>().c_str());
                 }
@@ -468,22 +468,22 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
                 elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
 
-                if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
-                    elog("trx_kafka_init fail");
+                if (0!=my->producer->trx_rabbitmq_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+                    elog("trx_rabbitmq_init fail");
                 } else{
-                    elog("trx_kafka_init ok");
+                    elog("trx_rabbitmq_init ok");
                 }
             }
 
-            if (options.count("kafka-uri")) {
-                ilog("initializing kafka_plugin");
+            if (options.count("rabbitmq-uri")) {
+                ilog("initializing rabbitmq_plugin");
                 my->configured = true;
 
-                if( options.count( "kafka-queue-size" )) {
-                    my->queue_size = options.at( "kafka-queue-size" ).as<uint32_t>();
+                if( options.count( "rabbitmq-queue-size" )) {
+                    my->queue_size = options.at( "rabbitmq-queue-size" ).as<uint32_t>();
                 }
-                if( options.count( "kafka-block-start" )) {
-                    my->start_block_num = options.at( "kafka-block-start" ).as<uint32_t>();
+                if( options.count( "rabbitmq-block-start" )) {
+                    my->start_block_num = options.at( "rabbitmq-block-start" ).as<uint32_t>();
                 }
                 if( my->start_block_num == 0 ) {
                     my->start_block_reached = true;
@@ -515,8 +515,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                         }));
                 my->init();
             } else {
-                wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
-                wlog( "kafka_plugin disabled." );
+                wlog( "eosio::rabbitmq_plugin configured, but no --rabbitmq-uri specified." );
+                wlog( "rabbitmq_plugin disabled." );
             }
 
         }
@@ -524,10 +524,10 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         FC_LOG_AND_RETHROW()
     }
 
-    void kafka_plugin::plugin_startup() {
+    void rabbitmq_plugin::plugin_startup() {
     }
 
-    void kafka_plugin::plugin_shutdown() {
+    void rabbitmq_plugin::plugin_shutdown() {
 
         my->accepted_block_connection.reset();
         my->irreversible_block_connection.reset();
