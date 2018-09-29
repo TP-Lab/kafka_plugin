@@ -1,4 +1,4 @@
-# EOSIO RabbitMQ Plugin (WIP)
+# EOSIO RabbitMQ Plugin 
 EOSIO RabbitMQ Plugin
 
 ## Requirements
@@ -49,3 +49,6 @@ parmeters for rabbitmq_plugin
 # --rabbitmq-block-start 100
 # --rabbitmq-queue-size 5000
 ```
+
+## TODOs
+* requeue on publish failure
