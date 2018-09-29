@@ -41,11 +41,14 @@ rabbitmqadmin declare exchange name=trx.applied type=direct durable=true interna
 ## Configuration
 Add the following to config.ini to enable the plugin:
 ```
-parmeters for rabbitmq_plugin
+parameters for rabbitmq_plugin
 # --plugin eosio::rabbitmq_plugin
-# --rabbitmq-uri 192.168.31.225:9092
-# --accept_trx_topic eos_accept_topic
-# --applied_trx_topic eos_applied_topic
+# --rabbitmq-hostname 192.168.31.225
+# --rabbitmq-port 5672
+# --rabbitmq-username guest
+# --rabbitmq-password guest
+# --rabbitmq-accept-trx-exchange eos_accept_topic
+# --rabbitmq-applied-trx-exchange eos_applied_topic
 # --rabbitmq-block-start 100
 # --rabbitmq-queue-size 5000
 ```
