@@ -435,9 +435,9 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                  "the rabbitmq hostname (e.g. localhost or 127.0.0.1)")
                 ("rabbitmq-port", bpo::value<uint32_t>()->default_value(5672),
                  "the rabbitmq port (e.g. 5672)")                 
-                ("rabbitmq-queue-size", bpo::value<uint32_t>()->default_value(256),
+                ("rabbitmq-queue-size", bpo::value<uint32_t>()->default_value(10000),
                  "The target queue size between nodeos and rabbitmq plugin thread.")
-                ("rabbitmq-block-start", bpo::value<uint32_t>()->default_value(256),
+                ("rabbitmq-block-start", bpo::value<uint32_t>()->default_value(0),
                  "If specified then no data is pushed to rabbitmq until specified block is reached.")
                  ;
     }

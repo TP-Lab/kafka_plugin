@@ -94,7 +94,7 @@ int rabbitmq_producer::trx_rabbitmq_init(std::string hostname, uint32_t port, st
                                username.c_str(), password.c_str()),"login");
   amqp_channel_open(conn, 1);
   exception_on_amqp_error(amqp_get_rpc_reply(conn), "Opening channel");
-  return 1;
+  return 0;
 }
 
 void rabbitmq_producer::trx_rabbitmq_sendmsg(std::string routingKey, std::string exchange, std::string msgstr){
@@ -102,11 +102,16 @@ void rabbitmq_producer::trx_rabbitmq_sendmsg(std::string routingKey, std::string
   props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
   props.content_type = amqp_cstring_bytes("text/plain");
   props.delivery_mode = 2; /* persistent delivery mode */
+  
+
   auto status = amqp_basic_publish(conn, 1, amqp_cstring_bytes(exchange.c_str()),
                                   amqp_cstring_bytes(routingKey.c_str()), 0, 0,
                                   &props, amqp_cstring_bytes(msgstr.c_str()));
-               
+
+  // dlog("sending message ${e}", ("e", exchange));
   EOS_ASSERT( !status, rabbitmq_plugin_publish_exception, "failed publish");             
+  // dlog("message sent ${m}", ("m", msgstr));
+
 }
 
 void rabbitmq_producer::trx_rabbitmq_destroy(){

@@ -32,6 +32,12 @@ edit /usr/local/eos/programs/nodeos/CMakeLists.txt:
 ## How to setup on your nodeos
 Enable this plugin using --plugin option to nodeos or in your config.ini. Use nodeos --help to see options used by this plugin.
 
+## Setup queues
+```
+rabbitmqadmin declare exchange name=trx.accepted type=direct durable=true internal=false 'arguments={"alternate-exchange":"trx.accepted_alt.fanout"}'
+
+rabbitmqadmin declare exchange name=trx.applied type=direct durable=true internal=false 'arguments={"alternate-exchange":"trx.accepted_alt.fanout"}'
+```
 ## Configuration
 Add the following to config.ini to enable the plugin:
 ```
