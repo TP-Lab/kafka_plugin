@@ -2,7 +2,7 @@
 EOSIO RabbitMQ Plugin
 
 ## Requirements
-###  install librabbitmq
+###  Install librabbitmq
 ```
 yum install librabbitmq-devel.x86_64
 ```
