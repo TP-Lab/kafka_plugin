@@ -47,8 +47,8 @@ parameters for rabbitmq_plugin
 # --rabbitmq-port 5672
 # --rabbitmq-username guest
 # --rabbitmq-password guest
-# --rabbitmq-accept-trx-exchange eos_accept_topic
-# --rabbitmq-applied-trx-exchange eos_applied_topic
+# --rabbitmq-accept-trx-exchange trx.accepted
+# --rabbitmq-applied-trx-exchange trx.applied
 # --rabbitmq-block-start 100
 # --rabbitmq-queue-size 5000
 ```
