@@ -2,8 +2,9 @@
  *  @file
  *  @copyright defined in eos/LICENSE.txt
  */
-//
+
 #include <stdlib.h>
+#include <string>
 #include <eosio/kafka_plugin/kafka_producer.hpp>
 #include <eosio/kafka_plugin/kafka_plugin.hpp>
 
@@ -26,6 +27,39 @@
 #include <queue>
 
 namespace fc { class variant; }
+
+
+/*{
+  "tx_id" : "1125ede029b3585ab5dad7d87354f5a46625b9ef72f6811f468e294398e7e165",
+  \"creator_account\" : \"newname134\",
+  \"account_name\" : \"newname133\",
+  \"block_time\" : 1537960380500,
+  \"block_num\" : 123
+}*/
+
+
+struct account_creation_message {
+    std::string tx_id;
+    const char* creator_account;
+    const char* account_name;
+    const int block_time;
+    const int block_num;
+};
+
+char *creation_message_to_string(account_creation_message *msg) {
+    std::string w1("{\"creator_account\" : \""),
+    w2(msg->creator_account),
+    w3("\", \"account_name\" : \""),
+    w4(msg->account_name),
+    w5("\", \"block_time\" : \""),
+    w6("\", \"block_num\" : \""),
+    w7("\", \"tx_id\" : \""),
+    w9("\"}");
+    std::string result = (w1 + w2 + w3 +w4 + w5 + std::to_string(msg->block_time)
+        + w6 + std::to_string(msg->block_num)
+        + w7 + msg->tx_id + w9);
+   return strdup(result.c_str());
+}
 
 namespace eosio {
 
@@ -76,6 +110,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         void process_applied_transaction(const trasaction_info_st &);
 
         void _process_applied_transaction(const trasaction_info_st &);
+
+        void _process_transaction_for_account_creations(const chain::transaction_trace_ptr &);
+
+        void process_action_trace(const chain::action_trace &,
+                                           const chain::transaction_trace_ptr &);
 
         void process_accepted_block(const chain::block_state_ptr &);
 
@@ -206,6 +245,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
 
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
+        //producer->trx_kafka_sendmsg(KAFKA_ACCOUNT_CREATION, bs.)
         try {
             queue(mtx, condition, block_state_queue, bs, queue_size);
         } catch (fc::exception &e) {
@@ -375,8 +415,47 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
-       producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
+       //producer->trx_kafka_sendmsg(KAFKA_ACCOUNT_CREATION,(char*)trx_json.c_str());
 
+    }
+
+    void kafka_plugin_impl::process_action_trace(const chain::action_trace &atrace,
+                                             const chain::transaction_trace_ptr &t)
+    {
+        if (atrace.receipt.receiver == chain::config::system_account_name)
+        {
+            const chain::action& action = atrace.act;
+            if(action.name == newaccount ) {
+                auto newacc = action.data_as<chain::newaccount>();
+                auto &chain = chain_plug->chain();
+                struct account_creation_message msg{
+                .tx_id = t->id.str(),
+                .creator_account = "NULL",
+                .account_name = newacc.name.to_string().c_str(),
+                .block_num = (int)t->block_num,
+                .block_time = (int)chain.pending_block_time().sec_since_epoch()};
+                elog("new acct creation");
+                //elog(newacc.name.to_string());
+                char *creation_message = creation_message_to_string(&msg);
+                elog("Creation message constructed");
+                elog(creation_message);
+                producer->trx_kafka_sendmsg(KAFKA_ACCOUNT_CREATION, creation_message);
+                elog("Successfully sent to Kafka queue");
+            }
+        }
+
+        for (const auto &iline_atrace : atrace.inline_traces)
+        {
+            process_action_trace(iline_atrace, t);
+        }
+    }
+
+    void kafka_plugin_impl::_process_transaction_for_account_creations(const chain::transaction_trace_ptr &t)
+    {
+        for (const auto &atrace : t->action_traces)
+        {
+            process_action_trace(atrace, t);
+        }
     }
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
@@ -384,91 +463,99 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
             string transaction_metadata_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
-       producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
+                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() + ",\"type\": \"applied\"" + "}";
+       //Send this transaction as a message to Kafka queue
+       producer->trx_kafka_sendmsg(KAFKA_GENERAL_TRX,(char*)transaction_metadata_json.c_str());
+
+       //Scrapes account creation actions and sends to account creation Kafka queue
+       _process_transaction_for_account_creations(t.trace);
 
     }
 
-    void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
-    {
-    }
+        void kafka_plugin_impl::_process_accepted_block(const chain::block_state_ptr &bs)
+        {
+        }
 
-    void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
-    {
-    }
+        void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr &bs)
+        {
+        }
 
-    kafka_plugin_impl::kafka_plugin_impl()
-    :producer(new kafka_producer)
-    {
-    }
+        kafka_plugin_impl::kafka_plugin_impl()
+            : producer(new kafka_producer)
+        {
+        }
 
-    kafka_plugin_impl::~kafka_plugin_impl() {
-       if (!startup) {
-          try {
-             ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
-             done = true;
-             condition.notify_one();
+        kafka_plugin_impl::~kafka_plugin_impl()
+        {
+            if (!startup)
+            {
+                try
+                {
+                    ilog("kafka_db_plugin shutdown in process please be patient this can take a few minutes");
+                    done = true;
+                    condition.notify_one();
 
-             consume_thread.join();
-             producer->trx_kafka_destroy();
-          } catch( std::exception& e ) {
-             elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
-          }
-       }
-    }
+                    consume_thread.join();
+                    producer->trx_kafka_destroy();
+                }
+                catch (std::exception &e)
+                {
+                    elog("Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
+                }
+            }
+        }
 
-    void kafka_plugin_impl::init() {
+        void kafka_plugin_impl::init()
+        {
 
-        ilog("starting kafka plugin thread");
-        consume_thread = boost::thread([this] { consume_blocks(); });
-        startup = false;
-    }
+            ilog("starting kafka plugin thread");
+            consume_thread = boost::thread([this] { consume_blocks(); });
+            startup = false;
+        }
 
-////////////
-// kafka_plugin
-////////////
+        ////////////
+        // kafka_plugin
+        ////////////
 
-    kafka_plugin::kafka_plugin()
-            : my(new kafka_plugin_impl) {
-    }
+        kafka_plugin::kafka_plugin()
+            : my(new kafka_plugin_impl)
+        {
+        }
 
-    kafka_plugin::~kafka_plugin() {
-    }
+        kafka_plugin::~kafka_plugin()
+        {
+        }
 
-    void kafka_plugin::set_program_options(options_description &cli, options_description &cfg) {
-        cfg.add_options()
-                ("accept_trx_topic", bpo::value<std::string>(),
-                 "The topic for accepted transaction.")
-                ("applied_trx_topic", bpo::value<std::string>(),
-                 "The topic for appiled transaction.")
-                ("kafka-uri,k", bpo::value<std::string>(),
-                 "the kafka brokers uri, as 192.168.31.225:9092")
-                ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
-                 "The target queue size between nodeos and kafka plugin thread.")
-                ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
-                 "If specified then only abi data pushed to kafka until specified block is reached.")
-                 ;
-    }
+        void kafka_plugin::set_program_options(options_description & cli, options_description & cfg)
+        {
+            cfg.add_options()("acc_topic", bpo::value<std::string>(),
+                              "The topic for new account creation")("trx_topic", bpo::value<std::string>(),
+                                                                    "The topic for transactions.")("kafka-uri,k", bpo::value<std::string>(),
+                                                                                                   "the kafka brokers uri, as 192.168.31.225:9092")("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
+                                                                                                                                                    "The target queue size between nodeos and kafka plugin thread.")("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
+                                                                                                                                                                                                                     "If specified then only abi data pushed to kafka until specified block is reached.");
+        }
 
-    void kafka_plugin::plugin_initialize(const variables_map &options) {
-        char *accept_trx_topic = NULL;
-        char *applied_trx_topic = NULL;
-        char *brokers_str = NULL;
+        void kafka_plugin::plugin_initialize(const variables_map &options)
+        {
+            char *acc_topic = NULL;
+            char *trx_topic = NULL;
+            char *brokers_str = NULL;
 
-        try {
+            try {
             if (options.count("kafka-uri")) {
                 brokers_str = (char *) (options.at("kafka-uri").as<std::string>().c_str());
-                if (options.count("accept_trx_topic") != 0) {
-                    accept_trx_topic = (char *) (options.at("accept_trx_topic").as<std::string>().c_str());
+                if (options.count("acc_topic") != 0) {
+                    acc_topic = (char *) (options.at("acc_topic").as<std::string>().c_str());
                 }
-                if (options.count("applied_trx_topic") != 0) {
-                    applied_trx_topic = (char *) (options.at("applied_trx_topic").as<std::string>().c_str());
+                if (options.count("trx_topic") != 0) {
+                    trx_topic = (char *) (options.at("trx_topic").as<std::string>().c_str());
                 }
                 elog("brokers_str:${j}", ("j", brokers_str));
-                elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
-                elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
+                elog("acc_topic:${j}", ("j", acc_topic));
+                elog("trx_topic:${j}", ("j", trx_topic));
 
-                if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+                if (0!=my->producer->trx_kafka_init(brokers_str,acc_topic,trx_topic)){
                     elog("trx_kafka_init fail");
                 } else{
                     elog("trx_kafka_init ok");

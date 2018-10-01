@@ -1,7 +1,3 @@
-/**
- *
- *
- */
 #pragma once
 
 #include <eosio/chain_plugin/chain_plugin.hpp>

@@ -29,11 +29,11 @@ Enable this plugin using --plugin option to nodeos or in your config.ini. Use no
 ## Configuration
 Add the following to config.ini to enable the plugin:
 ```
-parmeters for kafka_plugin
-# --plugin eosio::kafka_plugin
-# --kafka-uri 192.168.31.225:9092
-# --accept_trx_topic eos_accept_topic
-# --applied_trx_topic eos_applied_topic
-# --kafka-block-start 100
-# --kafka-queue-size 5000
-```
+#parmeters for kafka_plugin
+plugin = eosio::kafka_plugin
+plugin = eosio::producer_plugin
+kafka-uri = localhost:9092
+accept_trx_topic = accepted_trx_topic
+applied_trx_topic = applied_trx_topic
+kafka-block-start = 100
+kafka-queue-size = 5000
