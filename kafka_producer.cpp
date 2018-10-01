@@ -77,11 +77,11 @@ namespace eosio {
         rd_kafka_t *rk;
         rd_kafka_topic_t *rkt;
         if (trxtype == KAFKA_ACCOUNT_CREATION) {
-            rk = trx_rk;
-            rkt = trx_rkt;
-        } else if (trxtype == KAFKA_GENERAL_TRX) {
             rk = acc_rk;
             rkt = acc_rkt;
+        } else if (trxtype == KAFKA_GENERAL_TRX) {
+            rk = trx_rk;
+            rkt = trx_rkt;
         } else {
             return KAFKA_STATUS_MSG_INVALID;
         }
