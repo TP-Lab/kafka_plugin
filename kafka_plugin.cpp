@@ -39,7 +39,7 @@ namespace fc { class variant; }
 
 
 struct account_creation_message {
-    const char* tx_id;
+    std::string tx_id;
     const char* creator_account;
     const char* account_name;
     const int block_time;
@@ -54,11 +54,10 @@ char *creation_message_to_string(account_creation_message *msg) {
     w5("\", \"block_time\" : \""),
     w6("\", \"block_num\" : \""),
     w7("\", \"tx_id\" : \""),
-    w8(msg->tx_id),
     w9("\"}");
     std::string result = (w1 + w2 + w3 +w4 + w5 + std::to_string(msg->block_time)
         + w6 + std::to_string(msg->block_num)
-        + w7 + w8 + w9);
+        + w7 + msg->tx_id + w9);
    return strdup(result.c_str());
 }
 
@@ -430,13 +429,12 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 auto newacc = action.data_as<chain::newaccount>();
                 auto &chain = chain_plug->chain();
                 struct account_creation_message msg{
-                .tx_id = t->id.str().c_str(),
+                .tx_id = t->id.str(),
                 .creator_account = "NULL",
                 .account_name = newacc.name.to_string().c_str(),
                 .block_num = (int)t->block_num,
                 .block_time = (int)chain.pending_block_time().sec_since_epoch()};
                 elog("new acct creation");
-                elog(msg.tx_id);
                 //elog(newacc.name.to_string());
                 char *creation_message = creation_message_to_string(&msg);
                 elog("Creation message constructed");
