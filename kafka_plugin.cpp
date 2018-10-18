@@ -464,9 +464,12 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 if (options.count("applied_trx_topic") != 0) {
                     applied_trx_topic = (char *) (options.at("applied_trx_topic").as<std::string>().c_str());
                 }
-                elog("brokers_str:${j}", ("j", brokers_str));
-                elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
-                elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
+                if (brokers_str != NULL)
+                    elog("brokers_str:${j}", ("j", brokers_str));
+                if (accept_trx_topic != NULL)
+                    elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
+                if (applied_trx_topic != NULL)
+                    elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
 
                 if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
                     elog("trx_kafka_init fail");
@@ -538,5 +541,3 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
 } // namespace eosio
-
-
