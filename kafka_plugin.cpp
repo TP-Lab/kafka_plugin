@@ -375,6 +375,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
+       if (trx.actions[0].name == "transfer") {
+         const auto transfer_sys = trx.actions[0].data_as<chain::transfer>();
+         if(transfer_sys.to == "eosio") {
+           string temp = fc::json::to_string(transfer_sys);
+           producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char*)temp.c_str());
+         }
+       }
        producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
 
     }
