@@ -112,10 +112,9 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
         rabbitmq_producer_ptr producer;
         std::string m_accept_trx_exchange = "";
         std::string m_applied_trx_exchange = "";
+        std::string m_accept_block_exchange = "";
         
     };
-
-
 
 
     namespace {
@@ -377,6 +376,8 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
 
     void rabbitmq_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
     {
+       string block_metadata_json = fc::json::to_string(bs);
+       producer->trx_rabbitmq_sendmsg("", m_accept_block_exchange, block_metadata_json);
     }
 
     void rabbitmq_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
@@ -425,6 +426,8 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
         cfg.add_options()
                 ("rabbitmq-accept-trx-exchange", bpo::value<std::string>()->default_value("trx.accepted"),
                  "The exchange for accepted transaction.")
+                ("rabbitmq-accept-block-exchange", bpo::value<std::string>()->default_value("block.accepted"),
+                 "The exchange for accepted blocks." )
                 ("rabbitmq-applied-trx-exchange", bpo::value<std::string>()->default_value("trx.applied"),
                  "The exchange for appiled transaction.")
                 ("rabbitmq-username", bpo::value<std::string>()->default_value("guest"),
@@ -457,6 +460,9 @@ using rabbitmq_producer_ptr = std::shared_ptr<class rabbitmq_producer>;
                 }
                 if (options.count("rabbitmq-applied-trx-exchange") != 0) {
                     my->m_applied_trx_exchange = options.at("rabbitmq-applied-trx-exchange").as<std::string>();
+                }
+                if (options.count("rabbitmq-accept-block-exchange") != 0){
+                    my->m_accept_block_exchange = options.at("rabbitmq-accept-block-exchange").as<std::string>();
                 }
                 
                 if (0!=my->producer->trx_rabbitmq_init(hostname, port, username, password)){
