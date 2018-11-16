@@ -6,7 +6,7 @@ if(BUILD_KAFKA_PLUGIN)
                kafka_plugin.cpp kafka_producer.cpp
                ${HEADERS} )
   target_include_directories(kafka_plugin
-	  PUBLIC "include" ${RDKAFKA_INCLUDE_DIRS}
+	  PUBLIC "include" ${RDKAFKA_INCLUDEDIR}/librdkafka
           )
   target_link_libraries(kafka_plugin
 	  PUBLIC chain_plugin eosio_chain appbase fc ${RDKAFKA_LIBRARIES}
