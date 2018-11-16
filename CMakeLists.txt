@@ -14,3 +14,4 @@ if(BUILD_KAFKA_PLUGIN)
 else()
   message("kafka_plugin not selected and will be omitted.")
 endif()
+
