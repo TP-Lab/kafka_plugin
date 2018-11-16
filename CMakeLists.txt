@@ -1,4 +1,4 @@
-#if(BUILD_KAFKA_PLUGIN)
+if(BUILD_KAFKA_PLUGIN)
   include(FindPkgConfig)
   pkg_search_module(RDKAFKA REQUIRED rdkafka)
 
@@ -13,4 +13,4 @@
           )
 else()
   message("kafka_plugin not selected and will be omitted.")
-#endif()
+endif()
