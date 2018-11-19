@@ -12,34 +12,34 @@
  */
 namespace eosio {
 
-    int kafka_producer::trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t* rk,rd_kafka_topic_t* rkt,rd_kafka_conf_t* conf){
+    int kafka_producer::trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t** rk,rd_kafka_topic_t** rkt,rd_kafka_conf_t** conf){
         char errstr[512];
         if (brokers == NULL || topic == NULL) {
             return KAFKA_STATUS_INIT_FAIL;
         }
 
-        conf = rd_kafka_conf_new();
+        *conf = rd_kafka_conf_new();
 
-        if (rd_kafka_conf_set(conf, "bootstrap.servers", brokers, errstr,
+        if (rd_kafka_conf_set(*conf, "bootstrap.servers", brokers, errstr,
                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
             fprintf(stderr, "%s\n", errstr);
             return KAFKA_STATUS_INIT_FAIL;
         }
 
-        rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
+        rd_kafka_conf_set_dr_msg_cb(*conf, dr_msg_cb);
 
-        rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
-        if (!rk) {
+        *rk = rd_kafka_new(RD_KAFKA_PRODUCER, *conf, errstr, sizeof(errstr));
+        if (!(*rk)) {
             fprintf(stderr, "%% Failed to create new producer:%s\n", errstr);
             return KAFKA_STATUS_INIT_FAIL;
         }
 
-        rkt = rd_kafka_topic_new(rk, topic, NULL);
-        if (!rkt) {
+        *rkt = rd_kafka_topic_new(*rk, topic, NULL);
+        if (!(*rkt)) {
             fprintf(stderr, "%% Failed to create topic object: %s\n",
                     rd_kafka_err2str(rd_kafka_last_error()));
-            rd_kafka_destroy(rk);
-            rk = NULL;
+            rd_kafka_destroy(*rk);
+            *rk = NULL;
             return KAFKA_STATUS_INIT_FAIL;
         }
 
@@ -54,19 +54,19 @@ namespace eosio {
         }
 
         if (acceptopic != NULL) {
-            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,acceptopic,accept_rk,accept_rkt,accept_conf)){
+            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,acceptopic,&accept_rk,&accept_rkt,&accept_conf)){
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
 
         if (appliedtopic != NULL) {
-            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,appliedtopic,applied_rk,applied_rkt,applied_conf)){
+            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,appliedtopic,&applied_rk,&applied_rkt,&applied_conf)){
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
 
         if (transfertopic != NULL) {
-            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,transfertopic,transfer_rk,transfer_rkt,transfer_conf)){
+            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,transfertopic,&transfer_rk,&transfer_rkt,&transfer_conf)){
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
@@ -118,6 +118,20 @@ namespace eosio {
 
         rd_kafka_poll(rk, 0);
         return KAFKA_STATUS_OK;
+
+    }
+
+    rd_kafka_topic_t* kafka_producer::trx_kafka_get_topic(int trxtype){
+
+        if(trxtype == KAFKA_TRX_ACCEPT){
+            return accept_rkt;
+        }else if(trxtype == KAFKA_TRX_APPLIED){
+            return applied_rkt;
+        }else if(trxtype == KAFKA_TRX_TRANSFER){
+            return transfer_rkt;
+        }else{
+            return NULL;
+        }
 
     }
 

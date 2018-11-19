@@ -405,14 +405,17 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
     //elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
-    filter_traction_trace(t.trace,N(transfer));
-    if(t.trace->action_traces.size() > 0){
-        string transfer_json =
-                "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                ",\"trace\":" + fc::json::to_string(t.trace).c_str() +"}";
-        producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER,(char*)transaction_metadata_json.c_str());
-        //elog("transfer_json = ${e}",("e",transfer_json));
+    if(producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL){
+        filter_traction_trace(t.trace,N(transfer));
+        if(t.trace->action_traces.size() > 0){
+            string transfer_json =
+                    "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
+                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() +"}";
+            producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER,(char*)transfer_json.c_str());
+            //elog("transfer_json = ${e}",("e",transfer_json));
+        }
     }
+
 }
 
 void kafka_plugin_impl::_process_trace(vector<chain::action_trace>::iterator  action_trace_ptr,action_name act_name){
@@ -517,6 +520,8 @@ kafka_plugin_impl::~kafka_plugin_impl() {
                  "The topic for accepted transaction.")
                 ("applied_trx_topic", bpo::value<std::string>(),
                  "The topic for appiled transaction.")
+                ("transfer_trx_topic", bpo::value<std::string>(),
+                 "The topic for transfer transaction.")
                 ("kafka-uri,k", bpo::value<std::string>(),
                  "the kafka brokers uri, as 192.168.31.225:9092")
                 ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),

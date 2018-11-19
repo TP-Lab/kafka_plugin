@@ -29,11 +29,15 @@ class kafka_producer {
 
         int trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic,char *transfertopic);
 
-        int trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t* rk,rd_kafka_topic_t* rkt,rd_kafka_conf_t* conf);
+        int trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t** rk,rd_kafka_topic_t** rkt,rd_kafka_conf_t** conf);
 
         int trx_kafka_sendmsg(int trxtype, char *msgstr);
 
         int trx_kafka_destroy(void);
+
+        rd_kafka_topic_t* trx_kafka_get_topic(int trxtype);
+
+
 
     private:
         rd_kafka_t *accept_rk;            /*Producer instance handle*/
