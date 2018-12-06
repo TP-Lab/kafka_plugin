@@ -6,9 +6,9 @@
 
  
 /*
-    每条消息调用一次该回调函数，说明消息是传递成功(rkmessage->err == RD_KAFKA_RESP_ERR_NO_ERROR)
-    还是传递失败(rkmessage->err != RD_KAFKA_RESP_ERR_NO_ERROR)
-    该回调函数由rd_kafka_poll()触发，在应用程序的线程上执行
+    The callback function is called once for each message, indicating that the message was successfully delivered (rkmessage->err == RD_KAFKA_RESP_ERR_NO_ERROR)
+    Still failed to pass (rkmessage->err != RD_KAFKA_RESP_ERR_NO_ERROR)
+    The callback function is triggered by rd_kafka_poll() and executed on the thread of the application.
  */
 namespace eosio {
 
