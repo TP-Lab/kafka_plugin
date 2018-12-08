@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "rdkafka.h"
 
 namespace eosio {
@@ -25,7 +27,7 @@ class kafka_producer {
 
         int trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic);
 
-        int trx_kafka_sendmsg(int trxtype, char *msgstr);
+        int trx_kafka_sendmsg(int trxtype, char *msgstr, const std::string& msgKey);
 
         int trx_kafka_destroy(void);
 

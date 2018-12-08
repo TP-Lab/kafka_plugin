@@ -375,17 +375,44 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
-       producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
+       std::string noKey;
+       producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,
+                                   (char*)trx_json.c_str(),
+                                   noKey);
 
     }
 
-    void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
+    // This will return the sequence id of the last action. Due to inner actions we need to recurse inside.
+    uint64_t getLastActionID(const vector<chain::action_trace>& vecActions) {
+        int lastIndex = vecActions.size()-1;
+        if( vecActions[lastIndex].inline_traces.empty()) {
+            return vecActions[lastIndex].receipt.global_sequence;
+        } else {
+            return getLastActionID(vecActions[lastIndex].inline_traces);
+        }
+    }
+
+     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
+       const auto& actionTraces = t.trace->action_traces;
+       if(actionTraces.empty()) {
+           ilog("Apply transaction is skipped. No actions inside.");
+           return;
+       }
+
+       auto last_sent_act_id = getLastActionID(actionTraces);
+
+       std::stringstream sstream;
+       sstream << actionTraces[0].receipt.global_sequence;
+       sstream << ".";
+       sstream << last_sent_act_id;
 
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
             string transaction_metadata_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
                     ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
-       producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
+       producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,
+                                   (char*)transaction_metadata_json.c_str(),
+                                   sstream.str());
 
     }
 
@@ -464,9 +491,12 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 if (options.count("applied_trx_topic") != 0) {
                     applied_trx_topic = (char *) (options.at("applied_trx_topic").as<std::string>().c_str());
                 }
-                elog("brokers_str:${j}", ("j", brokers_str));
-                elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
-                elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
+                ilog("brokers_str:${j}", ("j", brokers_str));
+                if(accept_trx_topic) {
+                    ilog("accept_trx_topic:${j}", ("j", accept_trx_topic));
+                }
+
+                ilog("applied_trx_topic:${j}", ("j", applied_trx_topic));
 
                 if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
                     elog("trx_kafka_init fail");
@@ -505,10 +535,14 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                             my->applied_irreversible_block(bs);
                         }));
 
-                my->accepted_transaction_connection.emplace(
-                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
-                            my->accepted_transaction(t);
-                        }));
+                // If no accept trx topic name is specified - do not subscribe for the events.
+                if(accept_trx_topic) {
+                    my->accepted_transaction_connection.emplace(
+                            chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
+                                my->accepted_transaction(t);
+                            }));
+                }
+
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect([&](const chain::transaction_trace_ptr &t) {
                             my->applied_transaction(t);

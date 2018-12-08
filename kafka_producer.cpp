@@ -22,8 +22,14 @@ namespace eosio {
 
             accept_conf = rd_kafka_conf_new();
 
-            if (rd_kafka_conf_set(accept_conf, "bootstrap.servers", brokers, errstr,
-                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%i", 1);
+
+            if ((rd_kafka_conf_set(accept_conf, "bootstrap.servers", brokers, errstr,
+                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) ||
+                (rd_kafka_conf_set(accept_conf, "max.in.flight.requests.per.connection", buf, errstr,
+                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK))
+            {
                 fprintf(stderr, "%s\n", errstr);
                 return KAFKA_STATUS_INIT_FAIL;
             }
@@ -77,7 +83,7 @@ namespace eosio {
         return KAFKA_STATUS_OK;
     }
 
-    int kafka_producer::trx_kafka_sendmsg(int trxtype, char *msgstr) {
+    int kafka_producer::trx_kafka_sendmsg(int trxtype, char *msgstr, const std::string& msgKey) {
         rd_kafka_t *rk;
         rd_kafka_topic_t *rkt;
         if (trxtype == KAFKA_TRX_ACCEPT) {
@@ -101,7 +107,7 @@ namespace eosio {
                 RD_KAFKA_PARTITION_UA,
                 RD_KAFKA_MSG_F_COPY,
                 msgstr, len,
-                NULL, 0,
+                msgKey.c_str(), msgKey.size(),
                 NULL) == -1) {
             fprintf(stderr,
                     "%% Failed to produce to topic %s: %s\n",
