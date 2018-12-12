@@ -22,13 +22,8 @@ namespace eosio {
 
             accept_conf = rd_kafka_conf_new();
 
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%i", 1);
-
-            if ((rd_kafka_conf_set(accept_conf, "bootstrap.servers", brokers, errstr,
-                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) ||
-                (rd_kafka_conf_set(accept_conf, "max.in.flight.requests.per.connection", buf, errstr,
-                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK))
+            if (rd_kafka_conf_set(accept_conf, "bootstrap.servers", brokers, errstr,
+                                  sizeof(errstr)) != RD_KAFKA_CONF_OK)
             {
                 fprintf(stderr, "%s\n", errstr);
                 return KAFKA_STATUS_INIT_FAIL;
@@ -56,8 +51,19 @@ namespace eosio {
 
             applied_conf = rd_kafka_conf_new();
 
-            if (rd_kafka_conf_set(applied_conf, "bootstrap.servers", brokers, errstr,
-                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            char bufMsgInFlight[16];
+            snprintf(bufMsgInFlight, sizeof(bufMsgInFlight), "%i", 1);
+
+            const char* bufCompression = "lz4";
+            const char* bufIdempotent = "true";
+
+            if ((rd_kafka_conf_set(applied_conf, "bootstrap.servers", brokers, errstr,
+                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) ||
+                (rd_kafka_conf_set(applied_conf, "compression.codec", bufCompression, errstr,
+                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) ||
+                (rd_kafka_conf_set(applied_conf, "enable.idempotence", bufIdempotent, errstr,
+                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK))
+            {
                 fprintf(stderr, "%s\n", errstr);
                 return KAFKA_STATUS_INIT_FAIL;
             }
