@@ -402,8 +402,6 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        auto last_sent_act_id = getLastActionID(actionTraces);
 
        std::stringstream sstream;
-       sstream << actionTraces[0].receipt.global_sequence;
-       sstream << ".";
        sstream << last_sent_act_id;
 
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
