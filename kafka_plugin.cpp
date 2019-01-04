@@ -405,9 +405,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        sstream << last_sent_act_id;
 
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
-            string transaction_metadata_json =
+       auto &chain = chain_plug->chain();
+       fc::variant tracesVar = chain.to_variant_with_abi(t.trace, chain_plug->get_abi_serializer_max_time());
+
+       string transaction_metadata_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
+                    ",\"trace\":" + fc::json::to_string(tracesVar).c_str() + "}";
+
        producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,
                                    (char*)transaction_metadata_json.c_str(),
                                    sstream.str());
