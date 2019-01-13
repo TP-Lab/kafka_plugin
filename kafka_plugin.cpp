@@ -119,6 +119,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         static const std::string actions_col;
         static const std::string accounts_col;
         kafka_producer_ptr producer;
+        const uint64_t KAFKA_BLOCK_REACHED_LOG_INTERVAL = 1000;
+        uint64_t kafkaBlockReached = 0;
     };
 
     const account_name kafka_plugin_impl::newaccount = "newaccount";
@@ -395,7 +397,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
      void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
        const auto& actionTraces = t.trace->action_traces;
        if(actionTraces.empty()) {
-           ilog("Apply transaction is skipped. No actions inside.");
+           dlog("Apply transaction is skipped. No actions inside. Block number is: ${block_number}",
+                ("block_number", t.block_number));
            return;
        }
 
@@ -415,6 +418,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,
                                    (char*)transaction_metadata_json.c_str(),
                                    sstream.str());
+
+       if(0 == t.block_number % KAFKA_BLOCK_REACHED_LOG_INTERVAL &&
+               kafkaBlockReached < t.block_number) {
+           kafkaBlockReached = t.block_number;
+           ilog("Block number ${block_number} reached Kafka plugin",
+                ("block_number", t.block_number));
+       }
 
     }
 
