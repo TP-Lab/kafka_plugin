@@ -2,7 +2,7 @@
 
 #include "rdkafka.h"
 
-namespace eosio {
+namespace enumivo {
 #define KAFKA_STATUS_OK 0
 #define KAFKA_STATUS_INIT_FAIL 1
 #define KAFKA_STATUS_MSG_INVALID 2

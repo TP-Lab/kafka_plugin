@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <string.h>
 
-#include <eosio/kafka_plugin/kafka_producer.hpp>
+#include <enumivo/kafka_plugin/kafka_producer.hpp>
 
  
 /*
@@ -10,7 +10,7 @@
     还是传递失败(rkmessage->err != RD_KAFKA_RESP_ERR_NO_ERROR)
     该回调函数由rd_kafka_poll()触发，在应用程序的线程上执行
  */
-namespace eosio {
+namespace enumivo {
 
     int kafka_producer::trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t** rk,rd_kafka_topic_t** rkt,rd_kafka_conf_t** conf){
         char errstr[512];

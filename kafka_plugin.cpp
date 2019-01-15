@@ -4,14 +4,14 @@
  */
 //
 #include <stdlib.h>
-#include <eosio/kafka_plugin/kafka_producer.hpp>
-#include <eosio/kafka_plugin/kafka_plugin.hpp>
+#include <enumivo/kafka_plugin/kafka_producer.hpp>
+#include <enumivo/kafka_plugin/kafka_plugin.hpp>
 
-#include <eosio/chain/eosio_contract.hpp>
-#include <eosio/chain/config.hpp>
-#include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/transaction.hpp>
-#include <eosio/chain/types.hpp>
+#include <enumivo/chain/enumivo_contract.hpp>
+#include <enumivo/chain/config.hpp>
+#include <enumivo/chain/exceptions.hpp>
+#include <enumivo/chain/transaction.hpp>
+#include <enumivo/chain/types.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/utf8.hpp>
@@ -27,7 +27,7 @@
 
 namespace fc { class variant; }
 
-namespace eosio {
+namespace enumivo {
 
     using chain::account_name;
     using chain::action_name;
@@ -468,10 +468,6 @@ void kafka_plugin_impl::filter_traction_trace(const chain::transaction_trace_ptr
     }
 }
 
-void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
->>>>>>> aa18e495cc28b19563f34ad2507bc7499cbe8d7a
-
-    }
 
     void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
     {
@@ -583,7 +579,7 @@ void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& b
                 // hook up to signals on controller
                 //chain_plugin* chain_plug = app().find_plugiin<chain_plugin>();
                 my->chain_plug = app().find_plugin<chain_plugin>();
-                EOS_ASSERT(my->chain_plug, chain::missing_chain_plugin_exception, "");
+                ENU_ASSERT(my->chain_plug, (chain::missing_chain_plugin_exception), "");
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
@@ -606,7 +602,7 @@ void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& b
                         }));
                 my->init();
             } else {
-                wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
+                wlog( "enumivo::kafka_plugin configured, but no --kafka-uri specified." );
                 wlog( "kafka_plugin disabled." );
             }
 
@@ -628,6 +624,6 @@ void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& b
 
     }
 
-} // namespace eosio
+} // namespace enumivo
 
 

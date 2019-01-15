@@ -16,7 +16,7 @@ EOSIO Kafka Plugin
 ```
 #cd /usr/local/eos/plugins/
 #git clone https://github.com/tokenbankteam/kafka_plugin.git
-
+#git checkout develop
 edit /usr/local/eos/plugins/CMakeLists.txt:
 #add_subdirectory(kafka_plugin)
 
