@@ -468,10 +468,6 @@ void kafka_plugin_impl::filter_traction_trace(const chain::transaction_trace_ptr
     }
 }
 
-void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
->>>>>>> aa18e495cc28b19563f34ad2507bc7499cbe8d7a
-
-    }
 
     void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
     {
