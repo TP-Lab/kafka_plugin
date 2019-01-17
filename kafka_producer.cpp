@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#include <stdexcept>
 
 #include <eosio/kafka_plugin/kafka_producer.hpp>
 
@@ -12,7 +13,7 @@
  */
 namespace eosio {
 
-    int kafka_producer::trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic) {
+    int kafka_producer::trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic, MessageCallbackFunctionPtr msgDeliveredCallback) {
         char errstr[512];
         if (brokers == NULL) {
             return KAFKA_STATUS_INIT_FAIL;
@@ -29,7 +30,7 @@ namespace eosio {
                 return KAFKA_STATUS_INIT_FAIL;
             }
 
-            rd_kafka_conf_set_dr_msg_cb(accept_conf, dr_msg_cb);
+            rd_kafka_conf_set_dr_msg_cb(accept_conf, msgDeliveredCallback);
 
             accept_rk = rd_kafka_new(RD_KAFKA_PRODUCER, accept_conf, errstr, sizeof(errstr));
             if (!accept_rk) {
@@ -49,6 +50,7 @@ namespace eosio {
 
         if (appliedtopic != NULL) {
 
+            // This pointer is to be freed by rd_kafka_new below
             applied_conf = rd_kafka_conf_new();
 
             char bufMsgInFlight[16];
@@ -68,7 +70,7 @@ namespace eosio {
                 return KAFKA_STATUS_INIT_FAIL;
             }
 
-            rd_kafka_conf_set_dr_msg_cb(applied_conf, dr_msg_cb);
+            rd_kafka_conf_set_dr_msg_cb(applied_conf, msgDeliveredCallback);
 
 
             applied_rk = rd_kafka_new(RD_KAFKA_PRODUCER, applied_conf, errstr, sizeof(errstr));
@@ -107,26 +109,34 @@ namespace eosio {
             rd_kafka_poll(rk, 0);
             return KAFKA_STATUS_MSG_INVALID;
         }
-        retry:
-        if (rd_kafka_produce(
-                rkt,
-                RD_KAFKA_PARTITION_UA,
-                RD_KAFKA_MSG_F_COPY,
-                msgstr, len,
-                msgKey.c_str(), msgKey.size(),
-                NULL) == -1) {
-            fprintf(stderr,
-                    "%% Failed to produce to topic %s: %s\n",
-                    rd_kafka_topic_name(rkt),
-                    rd_kafka_err2str(rd_kafka_last_error()));
 
-            if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
-                rd_kafka_poll(rk, 1000);
-                goto retry;
+        bool shouldRetry = false;
+
+        do {
+            int rdKafkaProduceResult = rd_kafka_produce(
+                    rkt,
+                    RD_KAFKA_PARTITION_UA,
+                    RD_KAFKA_MSG_F_COPY,
+                    msgstr, len,
+                    msgKey.c_str(), msgKey.size(),
+                    NULL);
+
+            if(-1 == rdKafkaProduceResult) {
+                fprintf(stderr,
+                        "%% Failed to produce to topic %s: %s\n",
+                        rd_kafka_topic_name(rkt),
+                        rd_kafka_err2str(rd_kafka_last_error()));
+
+                if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
+                    rd_kafka_poll(rk, 1000);
+                    shouldRetry = true;
+                }
+                else {
+                    // Any other error - is not OK
+                    throw std::runtime_error("Error on Kafka - send message");
+                }
             }
-        } else {
-//        fprintf(stderr, "%% Enqueued message (%zd bytes) for topic %s\n", len, rd_kafka_topic_name(rkt));
-        }
+        } while(shouldRetry);
 
         rd_kafka_poll(rk, 0);
         return KAFKA_STATUS_OK;

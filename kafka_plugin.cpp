@@ -86,6 +86,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         void _process_irreversible_block(const chain::block_state_ptr &);
 
         void init();
+        static void kafkaCallbackFunction(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque);
+        static void handle_kafka_exception();
 
         bool configured{false};
 
@@ -332,10 +334,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
             }
         } catch (fc::exception &e) {
             elog("FC Exception while processing applied transaction trace: ${e}", ("e", e.to_detail_string()));
+            handle_kafka_exception();
         } catch (std::exception &e) {
             elog("STD Exception while processing applied transaction trace: ${e}", ("e", e.what()));
+            handle_kafka_exception();
         } catch (...) {
             elog("Unknown exception while processing applied transaction trace");
+            handle_kafka_exception();
         }
     }
 
@@ -347,10 +352,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
             }
         } catch (fc::exception &e) {
             elog("FC Exception while processing irreversible block: ${e}", ("e", e.to_detail_string()));
+            handle_kafka_exception();
         } catch (std::exception &e) {
             elog("STD Exception while processing irreversible block: ${e}", ("e", e.what()));
+            handle_kafka_exception();
         } catch (...) {
             elog("Unknown exception while processing irreversible block");
+            handle_kafka_exception();
         }
     }
 
@@ -366,10 +374,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
             }
         } catch (fc::exception &e) {
             elog("FC Exception while processing accepted block trace ${e}", ("e", e.to_string()));
+            handle_kafka_exception();
         } catch (std::exception &e) {
             elog("STD Exception while processing accepted block trace ${e}", ("e", e.what()));
+            handle_kafka_exception();
         } catch (...) {
             elog("Unknown exception while processing accepted block trace");
+            handle_kafka_exception();
         }
     }
 
@@ -463,6 +474,23 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         startup = false;
     }
 
+    void kafka_plugin_impl::handle_kafka_exception() {
+        // For the time being quit on all
+        elog( "Kafka plugin triggers Quit due to error.");
+        app().quit();
+    }
+
+    void kafka_plugin_impl::kafkaCallbackFunction(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {
+        if(nullptr == rkmessage ||
+           0 != rkmessage->err )
+        {
+            //std::string errorMsg (static_cast<const char*>(rkmessage->payload), rkmessage->len);
+            std::string errorMsg;
+            elog( "Kafka producer callback sent error: ${e}", ("e", errorMsg));
+            handle_kafka_exception();
+        }
+    }
+
 ////////////
 // kafka_plugin
 ////////////
@@ -510,10 +538,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
                 ilog("applied_trx_topic:${j}", ("j", applied_trx_topic));
 
-                if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
+                if (0 != my->producer->trx_kafka_init(brokers_str, accept_trx_topic, applied_trx_topic, my->kafkaCallbackFunction)) {
                     elog("trx_kafka_init fail");
+                    my->handle_kafka_exception();
                 } else{
-                    elog("trx_kafka_init ok");
+                    ilog("trx_kafka_init ok");
                 }
             }
 
