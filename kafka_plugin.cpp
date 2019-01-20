@@ -123,6 +123,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         kafka_producer_ptr producer;
         const uint64_t KAFKA_BLOCK_REACHED_LOG_INTERVAL = 1000;
         uint64_t kafkaBlockReached = 0;
+        static bool kafkaTriggeredQuit;
     };
 
     const account_name kafka_plugin_impl::newaccount = "newaccount";
@@ -134,7 +135,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     const std::string kafka_plugin_impl::trans_traces_col = "transaction_traces";
     const std::string kafka_plugin_impl::actions_col = "actions";
     const std::string kafka_plugin_impl::accounts_col = "accounts";
-
+    bool kafka_plugin_impl::kafkaTriggeredQuit = false;
 
     namespace {
 
@@ -475,9 +476,14 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
     void kafka_plugin_impl::handle_kafka_exception() {
+        // Trigger quit once only
+        if(kafkaTriggeredQuit) {
+            return;
+        }
         // For the time being quit on all
         elog( "Kafka plugin triggers Quit due to error.");
         app().quit();
+        kafkaTriggeredQuit = true;
     }
 
     void kafka_plugin_impl::kafkaCallbackFunction(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {
