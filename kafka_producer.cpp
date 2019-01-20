@@ -130,8 +130,9 @@ namespace eosio {
                 if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
                     rd_kafka_poll(rk, 1000);
                     shouldRetry = true;
-                }
-                else {
+                } else if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR_MSG_SIZE_TOO_LARGE) {
+                    fprintf(stderr, "The failed message is: \n %.*s ", static_cast<int>(len), msgstr);
+                } else {
                     // Any other error - is not OK
                     throw std::runtime_error("Error on Kafka - send message");
                 }
