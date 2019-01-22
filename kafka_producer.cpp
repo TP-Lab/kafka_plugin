@@ -53,8 +53,10 @@ namespace eosio {
             // This pointer is to be freed by rd_kafka_new below
             applied_conf = rd_kafka_conf_new();
 
-            char bufMsgInFlight[16];
-            snprintf(bufMsgInFlight, sizeof(bufMsgInFlight), "%i", 1);
+            //char bufMsgInFlight[16];
+            //snprintf(bufMsgInFlight, sizeof(bufMsgInFlight), "%i", 1);
+            //char bufMsgMaxBytes[16];
+            //snprintf(bufMsgMaxBytes, sizeof(bufMsgMaxBytes), "%i", 3000000);
 
             const char* bufCompression = "lz4";
             const char* bufIdempotent = "true";
@@ -64,7 +66,10 @@ namespace eosio {
                 (rd_kafka_conf_set(applied_conf, "compression.codec", bufCompression, errstr,
                                                   sizeof(errstr)) != RD_KAFKA_CONF_OK) ||
                 (rd_kafka_conf_set(applied_conf, "enable.idempotence", bufIdempotent, errstr,
-                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK))
+                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK)
+                    /*||
+                (rd_kafka_conf_set(applied_conf, "message.max.bytes", bufMsgMaxBytes, errstr,
+                                                  sizeof(errstr)) != RD_KAFKA_CONF_OK)*/ )
             {
                 fprintf(stderr, "%s\n", errstr);
                 return KAFKA_STATUS_INIT_FAIL;

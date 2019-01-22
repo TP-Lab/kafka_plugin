@@ -406,6 +406,21 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         }
     }
 
+    void filterSetcodeData(vector<chain::action_trace>& vecActions) {
+        for(auto& actTrace : vecActions) {
+            if("setcode" == actTrace.act.name.to_string()) {
+                chain::setcode sc = actTrace.act.data_as<chain::setcode>();
+                sc.code.clear();
+                actTrace.act.data = fc::raw::pack(sc);
+                dlog("'setcode' action is cleared of code data. Block number is: ${block_number}",
+                     ("block_number", actTrace.block_num));
+            }
+            if( !actTrace.inline_traces.empty()) {
+                filterSetcodeData(actTrace.inline_traces);
+            }
+        }
+    }
+
      void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
        const auto& actionTraces = t.trace->action_traces;
        if(actionTraces.empty()) {
@@ -413,6 +428,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 ("block_number", t.block_number));
            return;
        }
+
+       filterSetcodeData(t.trace->action_traces);
 
        auto last_sent_act_id = getLastActionID(actionTraces);
 
