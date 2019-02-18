@@ -408,7 +408,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void filterSetcodeData(vector<chain::action_trace>& vecActions) {
         for(auto& actTrace : vecActions) {
-            if("setcode" == actTrace.act.name.to_string()) {
+            if("setcode" == actTrace.act.name.to_string() &&
+                "eosio" == actTrace.act.account.to_string()) {
                 chain::setcode sc = actTrace.act.data_as<chain::setcode>();
                 sc.code.clear();
                 actTrace.act.data = fc::raw::pack(sc);
@@ -507,9 +508,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         if(nullptr == rkmessage ||
            0 != rkmessage->err )
         {
-            //std::string errorMsg (static_cast<const char*>(rkmessage->payload), rkmessage->len);
-            std::string errorMsg;
-            elog( "Kafka producer callback sent error: ${e}", ("e", errorMsg));
+            elog("Kafka message delivery failed: ${e}", ("e", rd_kafka_err2str(rkmessage->err)));
             handle_kafka_exception();
         }
     }
