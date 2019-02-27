@@ -225,7 +225,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     void kafka_plugin_impl::consume_blocks() {
         try {
 
-            while (true) {
+            while (true && !app().is_quiting()) {
                 boost::mutex::scoped_lock lock(mtx);
                 while (transaction_metadata_queue.empty() &&
                        transaction_trace_queue.empty() &&
@@ -438,6 +438,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
        sstream << last_sent_act_id;
 
        uint64_t time = (t.block_time.time_since_epoch().count()/1000);
+
+       // If the application is quitting it is unsafe to touch the chain_plugin. Return.
+       if(app().is_quiting()) {
+           return;
+       }
        auto &chain = chain_plug->chain();
        fc::variant tracesVar = chain.to_variant_with_abi(t.trace, chain_plug->get_abi_serializer_max_time());
 
