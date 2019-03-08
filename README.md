@@ -1,5 +1,5 @@
 # EOSIO Kafka Plugin
-EOSIO Kafka Plugin
+EOSIO Kafka Plugin is used to receive the transaction data fom blockchain and send out the transaction through kafka producer. Developer can receive the transaction data through kafka consumer in the background application.
 
 ## Requirements
 ###  install librdkafka
