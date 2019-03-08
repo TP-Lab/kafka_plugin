@@ -3,9 +3,9 @@
 EOSIO Kafka Plugin is used to receive the transaction data fom blockchain and send out the transaction through kafka producer. Developer can receive the transaction data through kafka consumer in the background application.
 
 ## how does the kafka plugin work
-1.it run a task to resume the transactions on chain. there's two type of transactions:"applied transaction" and "accepted transaction"
-2.create two kafka topics, the producer of which store the applied transaction and accepted transaction in kafka queue
-3.the dapp developer can get the transaction data through the consumer of the kafka topic.
+#1.it run a task to resume the transactions on chain. there's two type of transactions:"applied transaction" and "accepted transaction"
+#2.create two kafka topics, the producer of which store the applied transaction and accepted transaction in kafka queue
+#3.the dapp developer can get the transaction data through the consumer of the kafka topic.
 
 ## Based eosio version
 #EOS-Mainnet/eos mainnet-1.6.1 or later
