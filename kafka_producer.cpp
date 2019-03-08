@@ -12,80 +12,80 @@
  */
 namespace eosio {
 
-    int kafka_producer::trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic) {
+    int kafka_producer::trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t** rk,rd_kafka_topic_t** rkt,rd_kafka_conf_t** conf){
         char errstr[512];
+        if (brokers == NULL || topic == NULL) {
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        *conf = rd_kafka_conf_new();
+
+        if (rd_kafka_conf_set(*conf, "bootstrap.servers", brokers, errstr,
+                              sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            fprintf(stderr, "%s\n", errstr);
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        rd_kafka_conf_set_dr_msg_cb(*conf, dr_msg_cb);
+
+        *rk = rd_kafka_new(RD_KAFKA_PRODUCER, *conf, errstr, sizeof(errstr));
+        if (!(*rk)) {
+            fprintf(stderr, "%% Failed to create new producer:%s\n", errstr);
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        *rkt = rd_kafka_topic_new(*rk, topic, NULL);
+        if (!(*rkt)) {
+            fprintf(stderr, "%% Failed to create topic object: %s\n",
+                    rd_kafka_err2str(rd_kafka_last_error()));
+            rd_kafka_destroy(*rk);
+            *rk = NULL;
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        return KAFKA_STATUS_OK;
+
+    }
+
+    int kafka_producer::trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic,char *transfertopic) {
+
         if (brokers == NULL) {
             return KAFKA_STATUS_INIT_FAIL;
         }
 
         if (acceptopic != NULL) {
-
-            accept_conf = rd_kafka_conf_new();
-
-            if (rd_kafka_conf_set(accept_conf, "bootstrap.servers", brokers, errstr,
-                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
-                return KAFKA_STATUS_INIT_FAIL;
-            }
-
-            rd_kafka_conf_set_dr_msg_cb(accept_conf, dr_msg_cb);
-
-            accept_rk = rd_kafka_new(RD_KAFKA_PRODUCER, accept_conf, errstr, sizeof(errstr));
-            if (!accept_rk) {
-                fprintf(stderr, "%% Failed to create new producer:%s\n", errstr);
-                return KAFKA_STATUS_INIT_FAIL;
-            }
-
-            accept_rkt = rd_kafka_topic_new(accept_rk, acceptopic, NULL);
-            if (!accept_rkt) {
-                fprintf(stderr, "%% Failed to create topic object: %s\n",
-                        rd_kafka_err2str(rd_kafka_last_error()));
-                rd_kafka_destroy(accept_rk);
-                accept_rk = NULL;
+            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,acceptopic,&accept_rk,&accept_rkt,&accept_conf)){
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
 
         if (appliedtopic != NULL) {
-
-            applied_conf = rd_kafka_conf_new();
-
-            if (rd_kafka_conf_set(applied_conf, "bootstrap.servers", brokers, errstr,
-                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
-                return KAFKA_STATUS_INIT_FAIL;
-            }
-
-            rd_kafka_conf_set_dr_msg_cb(applied_conf, dr_msg_cb);
-
-
-            applied_rk = rd_kafka_new(RD_KAFKA_PRODUCER, applied_conf, errstr, sizeof(errstr));
-            if (!applied_rk) {
-                fprintf(stderr, "%% Failed to create new producer:%s\n", errstr);
-                return KAFKA_STATUS_INIT_FAIL;
-            }
-
-            applied_rkt = rd_kafka_topic_new(applied_rk, appliedtopic, NULL);
-            if (!applied_rkt) {
-                fprintf(stderr, "%% Failed to create topic object: %s\n",
-                        rd_kafka_err2str(rd_kafka_last_error()));
-                rd_kafka_destroy(applied_rk);
-                applied_rk = NULL;
+            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,appliedtopic,&applied_rk,&applied_rkt,&applied_conf)){
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
+
+        if (transfertopic != NULL) {
+            if(KAFKA_STATUS_OK!=trx_kafka_create_topic(brokers,transfertopic,&transfer_rk,&transfer_rkt,&transfer_conf)){
+                return KAFKA_STATUS_INIT_FAIL;
+            }
+        }
+
         return KAFKA_STATUS_OK;
     }
 
     int kafka_producer::trx_kafka_sendmsg(int trxtype, char *msgstr) {
         rd_kafka_t *rk;
         rd_kafka_topic_t *rkt;
-        if (trxtype == KAFKA_TRX_ACCEPT) {
+        if (trxtype == KAFKA_TRX_ACCEPT && accept_rk!=NULL && accept_rkt!=NULL) {
             rk = accept_rk;
             rkt = accept_rkt;
-        } else if (trxtype == KAFKA_TRX_APPLIED) {
+        } else if (trxtype == KAFKA_TRX_APPLIED && applied_rk!=NULL && applied_rkt!=NULL) {
             rk = applied_rk;
             rkt = applied_rkt;
+        } else if(trxtype == KAFKA_TRX_TRANSFER && transfer_rk!=NULL && transfer_rkt!=NULL){
+            rk = transfer_rk;
+            rkt = transfer_rkt;
         } else {
             return KAFKA_STATUS_MSG_INVALID;
         }
@@ -121,6 +121,20 @@ namespace eosio {
 
     }
 
+    rd_kafka_topic_t* kafka_producer::trx_kafka_get_topic(int trxtype){
+
+        if(trxtype == KAFKA_TRX_ACCEPT){
+            return accept_rkt;
+        }else if(trxtype == KAFKA_TRX_APPLIED){
+            return applied_rkt;
+        }else if(trxtype == KAFKA_TRX_TRANSFER){
+            return transfer_rkt;
+        }else{
+            return NULL;
+        }
+
+    }
+
     int kafka_producer::trx_kafka_destroy(void) {
         fprintf(stderr, "=== trx_kafka_destroyFlushing final message.. \n");
         if (accept_rk != NULL) {
@@ -140,6 +154,15 @@ namespace eosio {
             rd_kafka_destroy(applied_rk);
             applied_rk = NULL;
             applied_rkt = NULL;
+        }
+        if (transfer_rk != NULL) {
+            rd_kafka_flush(transfer_rk, 10 * 1000);
+            /* Destroy topic object */
+            rd_kafka_topic_destroy(transfer_rkt);
+            /* Destroy the producer instance */
+            rd_kafka_destroy(transfer_rk);
+            transfer_rk = NULL;
+            transfer_rkt = NULL;
         }
 
         return KAFKA_STATUS_OK;
