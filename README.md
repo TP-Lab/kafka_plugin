@@ -4,11 +4,11 @@ EOSIO Kafka Plugin is used to receive the transaction data fom blockchain and se
 
 ## how does the kafka plugin work
 
-1.it run a task to resume the transactions on chain. there's two type of transactions:"applied transaction" and "accepted transaction"
+1. it run a task to resume the transactions on chain. there's two type of transactions:"applied transaction" and "accepted transaction"
 
-2.create two kafka topics, the producer of which store the applied transaction and accepted transaction in kafka queue
+2. create two kafka topics, the producer of which store the applied transaction and accepted transaction in kafka queue
 
-3.the dapp developer can get the transaction data through the consumer of the kafka topic.
+3. the dapp developer can get the transaction data through the consumer of the kafka topic.
 
 ## Based eosio version
 EOS-Mainnet/eos mainnet-1.6.1 or later
@@ -24,12 +24,12 @@ cd librdkafka
 make
 sudo make install
 ```
-2.download the kafka plugin code in to eos file
+2. download the kafka plugin code in to eos file
 ```
 cd /usr/local/eos/plugins/
 git clone https://github.com/tokenbankteam/kafka_plugin.git
 ```
-3.update the CMakeLists.txt to complie the kafka plugin 
+3. update the CMakeLists.txt to complie the kafka plugin 
 ```
 (1)edit /usr/local/eos/plugins/CMakeLists.txt:
 add_subdirectory(kafka_plugin)
