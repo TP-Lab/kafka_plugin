@@ -375,6 +375,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
        const auto& trx = t->trx;
        string trx_json = fc::json::to_string( trx );
+       if (trx.actions[0].name == "transfer") {
+         const auto transfer_sys = trx.actions[0].data_as<chain::transfer>();
+         if(transfer_sys.to == "eosio") {
+           string temp = fc::json::to_string(transfer_sys);
+           producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char*)temp.c_str());
+         }
+       }
        producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
 
     }
@@ -464,9 +471,12 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 if (options.count("applied_trx_topic") != 0) {
                     applied_trx_topic = (char *) (options.at("applied_trx_topic").as<std::string>().c_str());
                 }
-                elog("brokers_str:${j}", ("j", brokers_str));
-                elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
-                elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
+                if (brokers_str != NULL)
+                    elog("brokers_str:${j}", ("j", brokers_str));
+                if (accept_trx_topic != NULL)
+                    elog("accept_trx_topic:${j}", ("j", accept_trx_topic));
+                if (applied_trx_topic != NULL)
+                    elog("applied_trx_topic:${j}", ("j", applied_trx_topic));
 
                 if (0!=my->producer->trx_kafka_init(brokers_str,accept_trx_topic,applied_trx_topic)){
                     elog("trx_kafka_init fail");
@@ -538,5 +548,3 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
 } // namespace eosio
-
-
