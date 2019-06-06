@@ -17,11 +17,9 @@
 #include <fc/utf8.hpp>
 #include <fc/variant.hpp>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/chrono.hpp>
 #include <boost/signals2/connection.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/condition_variable.hpp>
 
 #include <queue>
 
@@ -104,10 +102,13 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         void filter_traction_trace(const chain::transaction_trace_ptr trace,action_name act_name);
         void _process_trace(vector<chain::action_trace>::iterator  action_trace_ptr,action_name act_name);
 
+        template<typename Queue, typename Entry> void queue(Queue& queue, const Entry& e);
+
         uint32_t start_block_num = 0;
         bool start_block_reached = false;
 
-        size_t queue_size = 10000;
+        size_t max_queue_size = 10000;
+        int queue_sleep_time = 0;
         std::deque<chain::transaction_metadata_ptr> transaction_metadata_queue;
         std::deque<chain::transaction_metadata_ptr> transaction_metadata_process_queue;
         std::deque<trasaction_info_st> transaction_trace_queue;
@@ -116,11 +117,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         std::deque<chain::block_state_ptr> block_state_process_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
-        boost::mutex mtx;
-        boost::condition_variable condition;
-        boost::thread consume_thread;
-        boost::atomic<bool> done{false};
-        boost::atomic<bool> startup{true};
+        std::mutex mtx;
+        std::condition_variable condition;
+        std::thread consume_thread;
+        std::atomic_bool done{false};
+        std::atomic_bool startup{true};
         fc::optional<chain::chain_id_type> chain_id;
         fc::microseconds abi_serializer_max_time;
 
@@ -147,37 +148,34 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     const std::string kafka_plugin_impl::accounts_col = "accounts";
 
 
-    namespace {
 
-        template<typename Queue, typename Entry>
-        void queue(boost::mutex &mtx, boost::condition_variable &condition, Queue &queue, const Entry &e,
-                   size_t queue_size) {
-            int sleep_time = 100;
-            size_t last_queue_size = 0;
-            boost::mutex::scoped_lock lock(mtx);
-            if (queue.size() > queue_size) {
-                lock.unlock();
-                condition.notify_one();
-                if (last_queue_size < queue.size()) {
-                    sleep_time += 100;
-                } else {
-                    sleep_time -= 100;
-                    if (sleep_time < 0) sleep_time = 100;
-                }
-                last_queue_size = queue.size();
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(sleep_time));
-                lock.lock();
-            }
-            queue.emplace_back(e);
+
+    template<typename Queue, typename Entry>
+    void kafka_plugin_impl::queue( Queue& queue, const Entry& e ) {
+        std::unique_lock<std::mutex> lock( mtx );
+        auto queue_size = queue.size();
+        if( queue_size > max_queue_size ) {
             lock.unlock();
             condition.notify_one();
+            queue_sleep_time += 10;
+            if( queue_sleep_time > 1000 )
+                wlog("queue size: ${q}", ("q", queue_size));
+            std::this_thread::sleep_for( std::chrono::milliseconds( queue_sleep_time ));
+            lock.lock();
+        } else {
+            queue_sleep_time -= 10;
+            if( queue_sleep_time < 0 ) queue_sleep_time = 0;
         }
-
+        queue.emplace_back( e );
+        lock.unlock();
+        condition.notify_one();
     }
+
+
 
     void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
         try {
-            queue(mtx, condition, transaction_metadata_queue, t, queue_size);
+            queue(transaction_metadata_queue, t);
         } catch (fc::exception &e) {
             elog("FC Exception while accepted_transaction ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -188,16 +186,18 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     }
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
-        try {
+       if(!t->producer_block_id.valid() )
+            return; 
+	try {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
-                    .block_number = chain.pending_block_state()->block_num,
+                    .block_number = t->block_num,//chain.pending_block_state()->block_num,
                     .block_time = chain.pending_block_time(),
                     .trace =chain::transaction_trace_ptr(t)
             };
             trasaction_info_st &info_t = transactioninfo;
-
-            queue(mtx, condition, transaction_trace_queue, info_t, queue_size);
+	    elog("###trxId = ${e}",("e",t->id));
+            queue(transaction_trace_queue, info_t);
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -209,7 +209,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void kafka_plugin_impl::applied_irreversible_block(const chain::block_state_ptr &bs) {
         try {
-            queue(mtx, condition, irreversible_block_state_queue, bs, queue_size);
+            queue(irreversible_block_state_queue, bs);
         } catch (fc::exception &e) {
             elog("FC Exception while applied_irreversible_block ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -222,7 +222,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void kafka_plugin_impl::accepted_block(const chain::block_state_ptr &bs) {
         try {
-            queue(mtx, condition, block_state_queue, bs, queue_size);
+            queue(block_state_queue, bs);
         } catch (fc::exception &e) {
             elog("FC Exception while accepted_block ${e}", ("e", e.to_string()));
         } catch (std::exception &e) {
@@ -236,7 +236,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         try {
 
             while (true) {
-                boost::mutex::scoped_lock lock(mtx);
+                std::unique_lock<std::mutex> lock(mtx);
                 while (transaction_metadata_queue.empty() &&
                        transaction_trace_queue.empty() &&
                        block_state_queue.empty() &&
@@ -270,10 +270,10 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                 lock.unlock();
 
                 // warn if queue size greater than 75%
-                if (transaction_metadata_size > (queue_size * 0.75) ||
-                    transaction_trace_size > (queue_size * 0.75) ||
-                    block_state_size > (queue_size * 0.75) ||
-                    irreversible_block_size > (queue_size * 0.75)) {
+                if (transaction_metadata_size > (max_queue_size * 0.75) ||
+                    transaction_trace_size > (max_queue_size * 0.75) ||
+                    block_state_size > (max_queue_size * 0.75) ||
+                    irreversible_block_size > (max_queue_size * 0.75)) {
 //            wlog("queue size: ${q}", ("q", transaction_metadata_size + transaction_trace_size ));
                 } else if (done) {
                     ilog("draining queue, size: ${q}", ("q", transaction_metadata_size + transaction_trace_size));
@@ -388,22 +388,22 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
 
-   const auto& trx = t->trx;
+   const auto& trx = t->packed_trx;
    string trx_json = fc::json::to_string( trx );
    //elog("trx_json: ${e}",("e",trx_json));
    producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
 
-}
+    }
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
 
     uint64_t time = (t.block_time.time_since_epoch().count()/1000);
-
+    elog("trxId = ${e}",("e",t.trace->id));
     string transaction_metadata_json =
             "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
             ",\"trace\":" + fc::json::to_string(t.trace).c_str() +"}";
     producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
-    //elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
+   // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
     if(producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL){
         filter_traction_trace(t.trace,N(transfer));
@@ -420,11 +420,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
 void kafka_plugin_impl::_process_trace(vector<chain::action_trace>::iterator  action_trace_ptr,action_name act_name){
 
-    auto inline_trace_ptr = action_trace_ptr->inline_traces.begin();
+    /*auto inline_trace_ptr = action_trace_ptr->inline_traces.begin();
     for(;inline_trace_ptr!=action_trace_ptr->inline_traces.end();inline_trace_ptr++){
         //elog("inline action:");
         _process_trace(inline_trace_ptr,act_name);
-    }
+    }*/
 
     if(action_trace_ptr->act.name == act_name){
 
@@ -468,38 +468,39 @@ void kafka_plugin_impl::filter_traction_trace(const chain::transaction_trace_ptr
     }
 }
 
-void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs ) {
 
-}
+    void kafka_plugin_impl::_process_accepted_block( const chain::block_state_ptr& bs )
+    {
+    }
 
-void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
-{
-}
+    void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr& bs)
+    {
+    }
 
-kafka_plugin_impl::kafka_plugin_impl()
-:producer(new kafka_producer)
-{
-}
+    kafka_plugin_impl::kafka_plugin_impl()
+    :producer(new kafka_producer)
+    {
+    }
 
-kafka_plugin_impl::~kafka_plugin_impl() {
-   if (!startup) {
-      try {
-         ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
-         done = true;
-         condition.notify_one();
+    kafka_plugin_impl::~kafka_plugin_impl() {
+       if (!startup) {
+          try {
+             ilog( "kafka_db_plugin shutdown in process please be patient this can take a few minutes" );
+             done = true;
+             condition.notify_one();
 
-         consume_thread.join();
-         producer->trx_kafka_destroy();
-      } catch( std::exception& e ) {
-         elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
-      }
-   }
-}
+             consume_thread.join();
+             producer->trx_kafka_destroy();
+          } catch( std::exception& e ) {
+             elog( "Exception on kafka_plugin shutdown of consume thread: ${e}", ("e", e.what()));
+          }
+       }
+    }
 
     void kafka_plugin_impl::init() {
 
         ilog("starting kafka plugin thread");
-        consume_thread = boost::thread([this] { consume_blocks(); });
+        consume_thread = std::thread([this] { consume_blocks(); });
         startup = false;
     }
 
@@ -536,6 +537,7 @@ kafka_plugin_impl::~kafka_plugin_impl() {
         char *applied_trx_topic = NULL;
         char *transfer_trx_topic = NULL;
         char *brokers_str = NULL;
+
         try {
             if (options.count("kafka-uri")) {
                 brokers_str = (char *) (options.at("kafka-uri").as<std::string>().c_str());
@@ -564,15 +566,15 @@ kafka_plugin_impl::~kafka_plugin_impl() {
             ilog("initializing kafka_plugin");
             my->configured = true;
 
-         if( options.count( "kafka-queue-size" )) {
-            my->queue_size = options.at( "kafka-queue-size" ).as<uint32_t>();
-         }
-         if( options.count( "kafka-block-start" )) {
-            my->start_block_num = options.at( "kafka-block-start" ).as<uint32_t>();
-         }
-         if( my->start_block_num == 0 ) {
-            my->start_block_reached = true;
-         }
+                if( options.count( "kafka-queue-size" )) {
+                    my->max_queue_size = options.at( "kafka-queue-size" ).as<uint32_t>();
+                }
+                if( options.count( "kafka-block-start" )) {
+                    my->start_block_num = options.at( "kafka-block-start" ).as<uint32_t>();
+                }
+                if( my->start_block_num == 0 ) {
+                    my->start_block_reached = true;
+                }
 
                 // hook up to signals on controller
                 //chain_plugin* chain_plug = app().find_plugiin<chain_plugin>();
@@ -581,9 +583,10 @@ kafka_plugin_impl::~kafka_plugin_impl() {
                 auto &chain = my->chain_plug->chain();
                 my->chain_id.emplace(chain.get_chain_id());
 
-         my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
+                my->accepted_block_connection.emplace( chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
                             my->accepted_block(bs);
                         }));
+
                 my->irreversible_block_connection.emplace(
                         chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
                             my->applied_irreversible_block(bs);
@@ -594,17 +597,18 @@ kafka_plugin_impl::~kafka_plugin_impl() {
                             my->accepted_transaction(t);
                         }));
                 my->applied_transaction_connection.emplace(
-                        chain.applied_transaction.connect([&](const chain::transaction_trace_ptr &t) {
-                            my->applied_transaction(t);
+                        chain.applied_transaction.connect( [&]( std::tuple<const chain::transaction_trace_ptr&, const chain::signed_transaction&> t ) {
+                            my->applied_transaction( std::get<0>(t) );
                         }));
                 my->init();
             } else {
-         wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
-         wlog( "kafka_plugin disabled." );
+                wlog( "eosio::kafka_plugin configured, but no --kafka-uri specified." );
+                wlog( "kafka_plugin disabled." );
             }
 
-   } 
-   FC_LOG_AND_RETHROW()
+        }
+
+        FC_LOG_AND_RETHROW()
     }
 
     void kafka_plugin::plugin_startup() {
