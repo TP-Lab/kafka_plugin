@@ -136,8 +136,8 @@ namespace eosio {
         kafka_producer_ptr producer;
     };
 
-    const account_name kafka_plugin_impl::newaccount = "newaccount"_n.value;
-    const account_name kafka_plugin_impl::setabi = "setabi"_n.value;
+    const account_name kafka_plugin_impl::newaccount = chain::newaccount::get_name();
+    const account_name kafka_plugin_impl::setabi = chain::setabi::get_name();
 
     const std::string kafka_plugin_impl::block_states_col = "block_states";
     const std::string kafka_plugin_impl::blocks_col = "blocks";
