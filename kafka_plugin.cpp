@@ -136,8 +136,8 @@ namespace eosio {
         kafka_producer_ptr producer;
     };
 
-    const account_name kafka_plugin_impl::newaccount = "newaccount";
-    const account_name kafka_plugin_impl::setabi = "setabi";
+    const account_name kafka_plugin_impl::newaccount = "newaccount"_n.value;
+    const account_name kafka_plugin_impl::setabi = "setabi"_n.value;
 
     const std::string kafka_plugin_impl::block_states_col = "block_states";
     const std::string kafka_plugin_impl::blocks_col = "blocks";
@@ -381,8 +381,8 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
-        const auto &trx = t->packed_trx;
-        string trx_json = fc::json::to_string(trx);
+        const auto &trx = t->packed_trx();
+        string trx_json = fc::json::to_string(trx, fc::time_point::maximum());
         //elog("trx_json: ${e}",("e",trx_json));
         producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char *) trx_json.c_str());
     }
@@ -392,7 +392,7 @@ namespace eosio {
         elog("trxId = ${e}", ("e", t.trace->id));
         string transaction_metadata_json =
                 "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
+                ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
         producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED, (char *) transaction_metadata_json.c_str());
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
@@ -402,7 +402,7 @@ namespace eosio {
                 string transfer_json =
                         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
                         std::to_string(time) +
-                        ",\"trace\":" + fc::json::to_string(t.trace).c_str() + "}";
+                        ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
                 producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
                 //elog("transfer_json = ${e}",("e",transfer_json));
             }
@@ -428,7 +428,7 @@ namespace eosio {
             auto readonly = chain_plug->get_read_only_api();
             auto Result = readonly.abi_bin_to_json(params);
 
-            string data_str = fc::json::to_string(Result.args);
+            string data_str = fc::json::to_string(Result.args, fc::time_point::maximum());
             action_info action_info1 = {
                     .account = action_trace_ptr->act.account,
                     .name = action_trace_ptr->act.name,
