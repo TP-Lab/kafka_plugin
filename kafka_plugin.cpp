@@ -190,7 +190,7 @@ namespace eosio {
                     .trace =chain::transaction_trace_ptr(t)
             };
             trasaction_info_st &info_t = transactioninfo;
-            elog("###trxId = ${e}", ("e", t->id));
+            //elog("###trxId = ${e}", ("e", t->id));
             queue(transaction_trace_queue, info_t);
         } catch (fc::exception &e) {
             elog("FC Exception while applied_transaction ${e}", ("e", e.to_string()));
@@ -389,7 +389,7 @@ namespace eosio {
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
         uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
-        elog("trxId = ${e}", ("e", t.trace->id));
+        //elog("trxId = ${e}", ("e", t.trace->id));
         string transaction_metadata_json =
                 "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
                 ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
