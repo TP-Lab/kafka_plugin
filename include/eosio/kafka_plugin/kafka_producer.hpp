@@ -12,7 +12,7 @@ namespace eosio {
 #define KAFKA_TRX_APPLIED 1
 #define KAFKA_TRX_TRANSFER 2
 
-class kafka_producer {
+    class kafka_producer {
     public:
         kafka_producer() {
 
@@ -27,17 +27,16 @@ class kafka_producer {
             transfer_conf = NULL;
         };
 
-        int trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic,char *transfertopic);
+        int trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic, char *transfertopic);
 
-        int trx_kafka_create_topic(char *brokers, char *topic,rd_kafka_t** rk,rd_kafka_topic_t** rkt,rd_kafka_conf_t** conf);
+        int trx_kafka_create_topic(char *brokers, char *topic, rd_kafka_t **rk, rd_kafka_topic_t **rkt,
+                                   rd_kafka_conf_t **conf);
 
         int trx_kafka_sendmsg(int trxtype, char *msgstr);
 
         int trx_kafka_destroy(void);
 
-        rd_kafka_topic_t* trx_kafka_get_topic(int trxtype);
-
-
+        rd_kafka_topic_t *trx_kafka_get_topic(int trxtype);
 
     private:
         rd_kafka_t *accept_rk;            /*Producer instance handle*/
@@ -50,7 +49,7 @@ class kafka_producer {
         rd_kafka_conf_t *applied_conf;     /*kafka config*/
         rd_kafka_conf_t *transfer_conf;     /*kafka config*/
 
-        static void dr_msg_cb(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque){}
+        static void dr_msg_cb(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {}
     };
 }
 

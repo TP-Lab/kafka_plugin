@@ -27,7 +27,7 @@ sudo make install
 2. download the kafka plugin code in to eos file
 ```
 cd /usr/local/eos/plugins/
-git clone https://github.com/tokenbankteam/kafka_plugin.git
+git clone https://github.com/TP-Lab/kafka_plugin.git
 ```
 3. update the CMakeLists.txt to complie the kafka plugin 
 ```
