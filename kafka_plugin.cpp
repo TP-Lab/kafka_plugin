@@ -19,10 +19,6 @@
 
 #include <boost/chrono.hpp>
 #include <boost/signals2/connection.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/atomic/atomic.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/condition_variable.hpp>
 
 #include <queue>
 
@@ -117,11 +113,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         std::deque<chain::block_state_ptr> block_state_process_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_queue;
         std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
-        boost::mutex mtx;
-        boost::condition_variable condition;
-        boost::thread consume_thread;
-        boost::atomic<bool> done{false};
-        boost::atomic<bool> startup{true};
+        std::mutex mtx;
+        std::condition_variable condition;
+        std::thread consume_thread;
+        std::atomic<bool> done{false};
+        std::atomic<bool> startup{true};
         fc::optional<chain::chain_id_type> chain_id;
         fc::microseconds abi_serializer_max_time;
 
@@ -137,8 +133,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         kafka_producer_ptr producer;
     };
 
-    const account_name kafka_plugin_impl::newaccount = "newaccount";
-    const account_name kafka_plugin_impl::setabi = "setabi";
+    const account_name kafka_plugin_impl::newaccount = account_name("newaccount");
+    const account_name kafka_plugin_impl::setabi = account_name("setabi");
 
     const std::string kafka_plugin_impl::block_states_col = "block_states";
     const std::string kafka_plugin_impl::blocks_col = "blocks";
@@ -151,11 +147,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
     namespace {
 
         template<typename Queue, typename Entry>
-        void queue(boost::mutex &mtx, boost::condition_variable &condition, Queue &queue, const Entry &e,
+        void queue(std::mutex &mtx, std::condition_variable &condition, Queue &queue, const Entry &e,
                    size_t queue_size) {
             int sleep_time = 100;
             size_t last_queue_size = 0;
-            boost::mutex::scoped_lock lock(mtx);
+            std::unique_lock<std::mutex> lock( mtx );
             if (queue.size() > queue_size) {
                 lock.unlock();
                 condition.notify_one();
@@ -166,7 +162,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
                     if (sleep_time < 0) sleep_time = 100;
                 }
                 last_queue_size = queue.size();
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(sleep_time));
+                std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
                 lock.lock();
             }
             queue.emplace_back(e);
@@ -192,7 +188,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         try {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
-                    .block_number = chain.pending_block_state()->block_num,
+                    .block_number = chain.head_block_num(),
                     .block_time = chain.pending_block_time(),
                     .trace =chain::transaction_trace_ptr(t)
             };
@@ -237,7 +233,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         try {
 
             while (true) {
-                boost::mutex::scoped_lock lock(mtx);
+                std::unique_lock<std::mutex> lock( mtx );
                 while (transaction_metadata_queue.empty() &&
                        transaction_trace_queue.empty() &&
                        block_state_queue.empty() &&
@@ -389,8 +385,8 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
 
-   const auto& trx = t->packed_trx;
-   string trx_json = fc::json::to_string( trx );
+   const auto& trx = t->packed_trx();
+   string trx_json = fc::json::to_string( trx, fc::time_point::maximum()  );
    //elog("trx_json: ${e}",("e",trx_json));
    producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT,(char*)trx_json.c_str());
 
@@ -402,7 +398,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     string transaction_metadata_json =
             "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-            ",\"trace\":" + fc::json::to_string(t.trace).c_str() +"}";
+            ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() +"}";
     producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED,(char*)transaction_metadata_json.c_str());
     //elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
@@ -411,7 +407,7 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
         if(t.trace->action_traces.size() > 0){
             string transfer_json =
                     "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                    ",\"trace\":" + fc::json::to_string(t.trace).c_str() +"}";
+                    ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() +"}";
             producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER,(char*)transfer_json.c_str());
             //elog("transfer_json = ${e}",("e",transfer_json));
         }
@@ -421,11 +417,11 @@ using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
 void kafka_plugin_impl::_process_trace(vector<chain::action_trace>::iterator  action_trace_ptr,action_name act_name){
 
-    auto inline_trace_ptr = action_trace_ptr->inline_traces.begin();
-    for(;inline_trace_ptr!=action_trace_ptr->inline_traces.end();inline_trace_ptr++){
-        //elog("inline action:");
-        _process_trace(inline_trace_ptr,act_name);
-    }
+//    auto inline_trace_ptr = action_trace_ptr->inline_traces.begin();
+//    for(;inline_trace_ptr!=action_trace_ptr->inline_traces.end();inline_trace_ptr++){
+//        //elog("inline action:");
+//        _process_trace(inline_trace_ptr,act_name);
+//    }
 
     if(action_trace_ptr->act.name == act_name){
 
@@ -439,7 +435,7 @@ void kafka_plugin_impl::_process_trace(vector<chain::action_trace>::iterator  ac
         auto readonly = chain_plug->get_read_only_api();
         auto Result = readonly.abi_bin_to_json(params);
 
-        string data_str = fc::json::to_string(Result.args);
+        string data_str = fc::json::to_string(Result.args, fc::time_point::maximum());
         action_info action_info1 = {
                 .account = action_trace_ptr->act.account,
                 .name = action_trace_ptr->act.name,
@@ -501,7 +497,7 @@ void kafka_plugin_impl::filter_traction_trace(const chain::transaction_trace_ptr
     void kafka_plugin_impl::init() {
 
         ilog("starting kafka plugin thread");
-        consume_thread = boost::thread([this] { consume_blocks(); });
+        consume_thread = std::thread([this] { consume_blocks(); });
         startup = false;
     }
 
@@ -598,8 +594,8 @@ void kafka_plugin_impl::filter_traction_trace(const chain::transaction_trace_ptr
                             my->accepted_transaction(t);
                         }));
                 my->applied_transaction_connection.emplace(
-                        chain.applied_transaction.connect([&](const chain::transaction_trace_ptr &t) {
-                            my->applied_transaction(t);
+                        chain.applied_transaction.connect( [&]( std::tuple<const chain::transaction_trace_ptr&, const chain::signed_transaction&> t ) {
+                            my->applied_transaction( std::get<0>(t) );
                         }));
                 my->init();
             } else {
