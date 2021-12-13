@@ -546,7 +546,7 @@ namespace eosio {
                     elog("kafka-compression-codec:${j}", ("j", compression_codec));
                 }
 
-                if (0 != my->producer->trx_kafka_init(brokers_str, accept_trx_topic, applied_trx_topic,
+                if (0 != my->producer->trx_kafka_init(brokers_str, accept_trx_topic, compression_codec, applied_trx_topic,
                                                       transfer_trx_topic)) {
                     elog("trx_kafka_init fail");
                 } else {

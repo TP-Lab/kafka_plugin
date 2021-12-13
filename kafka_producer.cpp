@@ -20,7 +20,7 @@ namespace eosio {
 
         *conf = rd_kafka_conf_new();
 
-        if compression_code != NULL {
+        if (compression_code != NULL) {
             if (rd_kafka_conf_set(*conf, "compression.codec", compression_code, errstr,
                     sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                 fprintf(stderr, "%s\n", errstr);
@@ -57,7 +57,7 @@ namespace eosio {
     }
 
 
-    int kafka_producer::trx_kafka_init(char *brokers,char* compression_codec, char *acceptopic, char *appliedtopic, char *transfertopic) {
+    int kafka_producer::trx_kafka_init(char *brokers,char *acceptopic,char *compression_codec, char *appliedtopic, char *transfertopic) {
 
         if (brokers == NULL) {
             return KAFKA_STATUS_INIT_FAIL;

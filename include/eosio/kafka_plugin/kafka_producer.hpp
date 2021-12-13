@@ -27,7 +27,7 @@ namespace eosio {
             transfer_conf = NULL;
         };
 
-        int trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic, char *transfertopic);
+        int trx_kafka_init(char *brokers, char *acceptopic,char *compression_code, char *appliedtopic, char *transfertopic);
 
         int trx_kafka_create_topic(char *brokers, char *topic,char *compression_code, rd_kafka_t **rk, rd_kafka_topic_t **rkt,
                                    rd_kafka_conf_t **conf);
