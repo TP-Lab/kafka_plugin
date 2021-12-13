@@ -516,7 +516,11 @@ namespace eosio {
                 ("kafka-queue-size", bpo::value<uint32_t>()->default_value(256),
                  "The target queue size between nodeos and kafka plugin thread.")
                 ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
-                 "If specified then only abi data pushed to kafka until specified block is reached.");
+                 "If specified then only abi data pushed to kafka until specified block is reached.")
+                ("kafka-compression-codec", bpo::value<std::string>(),
+                 "Compression codec to use for compressing message sets. This is the default value for all topics, may be overriden by the topic configuration property compression.codec.(none, gzip, snappy, lz4)")
+                ;
+
     }
 
     void kafka_plugin::plugin_initialize(const variables_map &options) {
