@@ -64,6 +64,7 @@ namespace eosio {
         struct trasaction_info_st {
             uint64_t block_number;
             fc::time_point block_time;
+            fc::optional<chain::chain_id_type> chain_id;
             chain::transaction_trace_ptr trace;
             vector<action_info> action_vec;
 
@@ -190,6 +191,7 @@ namespace eosio {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
                     .block_number = t->block_num,//chain.pending_block_state()->block_num,
+                    .chain_id = this->chain_id,
                     .block_time = chain.pending_block_time(),
                     .trace =chain::transaction_trace_ptr(t)
             };
@@ -396,6 +398,7 @@ namespace eosio {
         //elog("trxId = ${e}", ("e", t.trace->id));
         string transaction_metadata_json =
                 "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
+                ",\"chain_id\":" + t.chain_id->str() +
                 ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
         producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED, (char *) transaction_metadata_json.c_str());
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
@@ -405,6 +408,7 @@ namespace eosio {
             if (t.trace->action_traces.size() > 0) {
                 string transfer_json =
                         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
+                        ",\"chain_id\":" + t.chain_id->str() +
                         std::to_string(time) +
                         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
                 producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
