@@ -524,7 +524,7 @@ namespace eosio {
         char *applied_trx_topic = NULL;
         char *transfer_trx_topic = NULL;
         char *brokers_str = NULL;
-
+        char *compression_codec = NULL;
         try {
             if (options.count("kafka-uri")) {
                 brokers_str = (char *) (options.at("kafka-uri").as<std::string>().c_str());
@@ -540,6 +540,10 @@ namespace eosio {
                 if (options.count("transfer_trx_topic") != 0) {
                     transfer_trx_topic = (char *) (options.at("transfer_trx_topic").as<std::string>().c_str());
                     elog("transfer_trx_topic:${j}", ("j", transfer_trx_topic));
+                }
+                 if (options.count("kafka-compression-codec") != 0) {
+                    compression_codec = (char *) (options.at("kafka-compression-codec").as<std::string>().c_str());
+                    elog("kafka-compression-codec:${j}", ("j", compression_codec));
                 }
 
                 if (0 != my->producer->trx_kafka_init(brokers_str, accept_trx_topic, applied_trx_topic,

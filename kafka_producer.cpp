@@ -11,7 +11,7 @@
  */
 namespace eosio {
 
-    int kafka_producer::trx_kafka_create_topic(char *brokers, char *topic, rd_kafka_t **rk, rd_kafka_topic_t **rkt,
+    int kafka_producer::trx_kafka_create_topic(char *brokers, char *topic,char *compression_code, rd_kafka_t **rk, rd_kafka_topic_t **rkt,
                                                rd_kafka_conf_t **conf) {
         char errstr[512];
         if (brokers == NULL || topic == NULL) {
@@ -19,6 +19,15 @@ namespace eosio {
         }
 
         *conf = rd_kafka_conf_new();
+
+        if compression_code != NULL {
+            if (rd_kafka_conf_set(*conf, "compression.codec", compression_code, errstr,
+                    sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+                fprintf(stderr, "%s\n", errstr);
+                return KAFKA_STATUS_INIT_FAIL;
+            }
+        }
+        
 
         if (rd_kafka_conf_set(*conf, "bootstrap.servers", brokers, errstr,
                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
@@ -47,28 +56,29 @@ namespace eosio {
 
     }
 
-    int kafka_producer::trx_kafka_init(char *brokers, char *acceptopic, char *appliedtopic, char *transfertopic) {
+
+    int kafka_producer::trx_kafka_init(char *brokers,char* compression_codec, char *acceptopic, char *appliedtopic, char *transfertopic) {
 
         if (brokers == NULL) {
             return KAFKA_STATUS_INIT_FAIL;
         }
 
         if (acceptopic != NULL) {
-            if (KAFKA_STATUS_OK != trx_kafka_create_topic(brokers, acceptopic, &accept_rk, &accept_rkt, &accept_conf)) {
+            if (KAFKA_STATUS_OK != trx_kafka_create_topic(brokers, acceptopic,compression_codec, &accept_rk, &accept_rkt, &accept_conf)) {
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
 
         if (appliedtopic != NULL) {
             if (KAFKA_STATUS_OK !=
-                trx_kafka_create_topic(brokers, appliedtopic, &applied_rk, &applied_rkt, &applied_conf)) {
+                trx_kafka_create_topic(brokers, appliedtopic,compression_codec, &applied_rk, &applied_rkt, &applied_conf)) {
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
 
         if (transfertopic != NULL) {
             if (KAFKA_STATUS_OK !=
-                trx_kafka_create_topic(brokers, transfertopic, &transfer_rk, &transfer_rkt, &transfer_conf)) {
+                trx_kafka_create_topic(brokers, transfertopic,compression_codec, &transfer_rk, &transfer_rkt, &transfer_conf)) {
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
