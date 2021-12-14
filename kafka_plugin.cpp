@@ -398,8 +398,8 @@ namespace eosio {
         //elog("trxId = ${e}", ("e", t.trace->id));
         string transaction_metadata_json =
                 "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                ",\"chain_id\":" + t.chain_id->str() +
-                ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
+                ",\"chain_id\":\"" + t.chain_id->str() +
+                "\",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
         producer->trx_kafka_sendmsg(KAFKA_TRX_APPLIED, (char *) transaction_metadata_json.c_str());
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
@@ -407,9 +407,8 @@ namespace eosio {
             filter_traction_trace(t.trace, N(transfer));
             if (t.trace->action_traces.size() > 0) {
                 string transfer_json =
-                        "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
-                        ",\"chain_id\":" + t.chain_id->str() +
-                        std::to_string(time) +
+                        "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
+                        ",\"chain_id\":" + "\""+ t.chain_id->str() + "\""+
                         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
                 producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
                 //elog("transfer_json = ${e}",("e",transfer_json));
