@@ -25,6 +25,7 @@
 #include <boost/thread/condition_variable.hpp>
 
 #include <queue>
+
 using eosio::chain::name;
 namespace fc { class variant; }
 
@@ -50,10 +51,10 @@ namespace eosio {
 
         ~kafka_plugin_impl();
 
-        std::optional<boost::signals2::scoped_connection> accepted_block_connection;
-        std::optional<boost::signals2::scoped_connection> irreversible_block_connection;
-        std::optional<boost::signals2::scoped_connection> accepted_transaction_connection;
-        std::optional<boost::signals2::scoped_connection> applied_transaction_connection;
+        std::optional <boost::signals2::scoped_connection> accepted_block_connection;
+        std::optional <boost::signals2::scoped_connection> irreversible_block_connection;
+        std::optional <boost::signals2::scoped_connection> accepted_transaction_connection;
+        std::optional <boost::signals2::scoped_connection> applied_transaction_connection;
         chain_plugin *chain_plug;
         struct action_info {
             account_name account;
@@ -65,12 +66,11 @@ namespace eosio {
         struct trasaction_info_st {
             uint64_t block_number;
             fc::time_point block_time;
-            std::optional<chain::chain_id_type> chain_id;
+            std::optional <chain::chain_id_type> chain_id;
             chain::transaction_trace_ptr trace;
-            vector<action_info> action_vec;
+            vector <action_info> action_vec;
 
         };
-
 
 
         void consume_blocks();
@@ -103,8 +103,9 @@ namespace eosio {
 
         bool configured{false};
 
-        void filter_traction_trace(const chain::transaction_trace_ptr trace,action_name act_name);
-        void _process_trace(vector<chain::action_trace>::iterator  action_trace_ptr,action_name act_name);
+        void filter_traction_trace(const chain::transaction_trace_ptr trace, action_name act_name);
+
+        void _process_trace(vector<chain::action_trace>::iterator action_trace_ptr, action_name act_name);
 
         template<typename Queue, typename Entry>
         void queue(Queue &queue, const Entry &e);
@@ -114,20 +115,20 @@ namespace eosio {
 
         size_t max_queue_size = 10000;
         int queue_sleep_time = 0;
-        std::deque<chain::transaction_metadata_ptr> transaction_metadata_queue;
-        std::deque<chain::transaction_metadata_ptr> transaction_metadata_process_queue;
-        std::deque<trasaction_info_st> transaction_trace_queue;
-        std::deque<trasaction_info_st> transaction_trace_process_queue;
-        std::deque<chain::block_state_ptr> block_state_queue;
-        std::deque<chain::block_state_ptr> block_state_process_queue;
-        std::deque<chain::block_state_ptr> irreversible_block_state_queue;
-        std::deque<chain::block_state_ptr> irreversible_block_state_process_queue;
+        std::deque <chain::transaction_metadata_ptr> transaction_metadata_queue;
+        std::deque <chain::transaction_metadata_ptr> transaction_metadata_process_queue;
+        std::deque <trasaction_info_st> transaction_trace_queue;
+        std::deque <trasaction_info_st> transaction_trace_process_queue;
+        std::deque <chain::block_state_ptr> block_state_queue;
+        std::deque <chain::block_state_ptr> block_state_process_queue;
+        std::deque <chain::block_state_ptr> irreversible_block_state_queue;
+        std::deque <chain::block_state_ptr> irreversible_block_state_process_queue;
         std::mutex mtx;
         std::condition_variable condition;
         std::thread consume_thread;
         std::atomic_bool done{false};
         std::atomic_bool startup{true};
-        std::optional<chain::chain_id_type> chain_id;
+        std::optional <chain::chain_id_type> chain_id;
         fc::microseconds abi_serializer_max_time;
 
         static const account_name newaccount;
@@ -154,7 +155,7 @@ namespace eosio {
 
     template<typename Queue, typename Entry>
     void kafka_plugin_impl::queue(Queue &queue, const Entry &e) {
-        std::unique_lock<std::mutex> lock(mtx);
+        std::unique_lock <std::mutex> lock(mtx);
         auto queue_size = queue.size();
         if (queue_size > max_queue_size) {
             lock.unlock();
@@ -193,7 +194,6 @@ namespace eosio {
             trasaction_info_st transactioninfo = trasaction_info_st{
                     .block_number = t->block_num,//chain.pending_block_state()->block_num,
                     .chain_id = this->chain_id,
-//                    .block_time = chain.pending_block_time(),
                     .trace =chain::transaction_trace_ptr(t),
             };
             transactioninfo.block_time = chain.pending_block_time();
@@ -238,7 +238,7 @@ namespace eosio {
         try {
 
             while (true) {
-                std::unique_lock<std::mutex> lock(mtx);
+                std::unique_lock <std::mutex> lock(mtx);
                 while (transaction_metadata_queue.empty() &&
                        transaction_trace_queue.empty() &&
                        block_state_queue.empty() &&
@@ -409,8 +409,9 @@ namespace eosio {
             filter_traction_trace(t.trace, name("transfer"));
             if (t.trace->action_traces.size() > 0) {
                 string transfer_json =
-                        "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
-                        ",\"chain_id\":" + "\""+ t.chain_id->str() + "\""+
+                        "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" +
+                        std::to_string(time) +
+                        ",\"chain_id\":" + "\"" + t.chain_id->str() + "\"" +
                         ",\"trace\":" + fc::json::to_string(t.trace, fc::time_point::maximum()).c_str() + "}";
                 producer->trx_kafka_sendmsg(KAFKA_TRX_TRANSFER, (char *) transfer_json.c_str());
                 //elog("transfer_json = ${e}",("e",transfer_json));
@@ -523,8 +524,7 @@ namespace eosio {
                 ("kafka-block-start", bpo::value<uint32_t>()->default_value(256),
                  "If specified then only abi data pushed to kafka until specified block is reached.")
                 ("kafka-compression-codec", bpo::value<std::string>(),
-                 "Compression codec to use for compressing message sets. This is the default value for all topics, may be overriden by the topic configuration property compression.codec.(none, gzip, snappy, lz4)")
-                ;
+                 "Compression codec to use for compressing message sets. This is the default value for all topics, may be overriden by the topic configuration property compression.codec.(none, gzip, snappy, lz4)");
 
     }
 
@@ -550,13 +550,14 @@ namespace eosio {
                     transfer_trx_topic = (char *) (options.at("transfer_trx_topic").as<std::string>().c_str());
                     elog("transfer_trx_topic:${j}", ("j", transfer_trx_topic));
                 }
-                 if (options.count("kafka-compression-codec") != 0) {
+                if (options.count("kafka-compression-codec") != 0) {
                     compression_codec = (char *) (options.at("kafka-compression-codec").as<std::string>().c_str());
                     elog("kafka-compression-codec:${j}", ("j", compression_codec));
                 }
 
-                if (0 != my->producer->trx_kafka_init(brokers_str, accept_trx_topic, compression_codec, applied_trx_topic,
-                                                      transfer_trx_topic)) {
+                if (0 !=
+                    my->producer->trx_kafka_init(brokers_str, accept_trx_topic, compression_codec, applied_trx_topic,
+                                                 transfer_trx_topic)) {
                     elog("trx_kafka_init fail");
                 } else {
                     elog("trx_kafka_init ok");
@@ -600,7 +601,7 @@ namespace eosio {
                         }));
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
-                                [&](std::tuple<const std::shared_ptr<chain::transaction_trace>&, const std::shared_ptr<const chain::packed_transaction>&> t) {
+                                [&](std::tuple<const std::shared_ptr <chain::transaction_trace> &, const std::shared_ptr<const chain::packed_transaction> &> t) {
                                     my->applied_transaction(std::get<0>(t));
                                 }));
                 my->init();
