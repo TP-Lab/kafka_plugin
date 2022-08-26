@@ -12,6 +12,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/name.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/utf8.hpp>
@@ -24,7 +25,7 @@
 #include <boost/thread/condition_variable.hpp>
 
 #include <queue>
-
+using eosio::chain::name;
 namespace fc { class variant; }
 
 namespace eosio {
@@ -49,10 +50,10 @@ namespace eosio {
 
         ~kafka_plugin_impl();
 
-        fc::optional<boost::signals2::scoped_connection> accepted_block_connection;
-        fc::optional<boost::signals2::scoped_connection> irreversible_block_connection;
-        fc::optional<boost::signals2::scoped_connection> accepted_transaction_connection;
-        fc::optional<boost::signals2::scoped_connection> applied_transaction_connection;
+        std::optional<boost::signals2::scoped_connection> accepted_block_connection;
+        std::optional<boost::signals2::scoped_connection> irreversible_block_connection;
+        std::optional<boost::signals2::scoped_connection> accepted_transaction_connection;
+        std::optional<boost::signals2::scoped_connection> applied_transaction_connection;
         chain_plugin *chain_plug;
         struct action_info {
             account_name account;
@@ -64,7 +65,7 @@ namespace eosio {
         struct trasaction_info_st {
             uint64_t block_number;
             fc::time_point block_time;
-            fc::optional<chain::chain_id_type> chain_id;
+            std::optional<chain::chain_id_type> chain_id;
             chain::transaction_trace_ptr trace;
             vector<action_info> action_vec;
 
@@ -126,7 +127,7 @@ namespace eosio {
         std::thread consume_thread;
         std::atomic_bool done{false};
         std::atomic_bool startup{true};
-        fc::optional<chain::chain_id_type> chain_id;
+        std::optional<chain::chain_id_type> chain_id;
         fc::microseconds abi_serializer_max_time;
 
         static const account_name newaccount;
@@ -185,16 +186,17 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
-        if (!t->producer_block_id.valid())
+        if (!t->producer_block_id.has_value())
             return;
         try {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
                     .block_number = t->block_num,//chain.pending_block_state()->block_num,
                     .chain_id = this->chain_id,
-                    .block_time = chain.pending_block_time(),
-                    .trace =chain::transaction_trace_ptr(t)
+//                    .block_time = chain.pending_block_time(),
+                    .trace =chain::transaction_trace_ptr(t),
             };
+            transactioninfo.block_time = chain.pending_block_time();
             trasaction_info_st &info_t = transactioninfo;
             //elog("###trxId = ${e}", ("e", t->id));
             queue(transaction_trace_queue, info_t);
@@ -404,7 +406,7 @@ namespace eosio {
         // elog("transaction_metadata_json = ${e}",("e",transaction_metadata_json));
 
         if (producer->trx_kafka_get_topic(KAFKA_TRX_TRANSFER) != NULL) {
-            filter_traction_trace(t.trace, N(transfer));
+            filter_traction_trace(t.trace, name("transfer"));
             if (t.trace->action_traces.size() > 0) {
                 string transfer_json =
                         "{\"block_number\":" + std::to_string(t.block_number) + ",\"block_time\":" + std::to_string(time) +
@@ -598,7 +600,7 @@ namespace eosio {
                         }));
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
-                                [&](std::tuple<const chain::transaction_trace_ptr &, const chain::signed_transaction &> t) {
+                                [&](std::tuple<const std::shared_ptr<chain::transaction_trace>&, const std::shared_ptr<const chain::packed_transaction>&> t) {
                                     my->applied_transaction(std::get<0>(t));
                                 }));
                 my->init();
