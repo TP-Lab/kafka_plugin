@@ -3,14 +3,10 @@
  *
  */
 #pragma once
-
+#include <eosio/chain//application.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <appbase/application.hpp>
-#include <memory>
 
 namespace eosio {
-    using std::unique_ptr;
-
 /**
  * Provides persistence to kafka for:
  * transaction_traces

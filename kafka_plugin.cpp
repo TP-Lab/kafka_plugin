@@ -13,6 +13,7 @@
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/name.hpp>
+#include <eosio/chain/abi_serializer.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/utf8.hpp>
@@ -24,13 +25,13 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition_variable.hpp>
 
+#include <thread>
 #include <queue>
 
-using eosio::chain::name;
 namespace fc { class variant; }
 
 namespace eosio {
-
+    using chain::name;
     using chain::account_name;
     using chain::action_name;
     using chain::block_id_type;
@@ -42,7 +43,6 @@ namespace eosio {
     using chain::packed_transaction;
     using chain::permission_level;
 
-    static appbase::abstract_plugin &_kafka_plugin = app().register_plugin<kafka_plugin>();
     using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     class kafka_plugin_impl {
@@ -129,7 +129,7 @@ namespace eosio {
         std::atomic_bool done{false};
         std::atomic_bool startup{true};
         std::optional <chain::chain_id_type> chain_id;
-        fc::microseconds abi_serializer_max_time;
+        fc::microseconds abi_serializer_max_time = fc::seconds(10);;
 
         static const account_name newaccount;
         static const account_name setabi;
@@ -428,17 +428,21 @@ namespace eosio {
         }*/
 
         if (action_trace_ptr->act.name == act_name) {
-            //elog("act_name=${e}",("e",act_name));
-            chain_apis::read_only::abi_bin_to_json_params params = {
-                    .code = action_trace_ptr->act.account,
-                    .action = action_trace_ptr->act.name,
-                    .binargs = action_trace_ptr->act.data
-            };
+            auto readonly = chain_plug->get_read_only_api(abi_serializer_max_time);
+            chain_apis::read_only::get_code_params get_code_params;
+            get_code_params.account_name = action_trace_ptr->act.account;
 
-            auto readonly = chain_plug->get_read_only_api();
-            auto Result = readonly.abi_bin_to_json(params);
+            auto get_code_results = readonly.get_code(get_code_params, fc::time_point::now() + abi_serializer_max_time);
 
-            string data_str = fc::json::to_string(Result.args, fc::time_point::maximum());
+            if (!get_code_results.abi.has_value()){
+                return;
+            }
+            auto abi = std::make_shared<chain::abi_serializer>(std::move(get_code_results.abi.value()), chain::abi_serializer::create_yield_function(abi_serializer_max_time));
+
+            auto args = abi->binary_to_variant(abi->get_action_type(action_trace_ptr->act.name), action_trace_ptr->act.data, chain::abi_serializer::create_yield_function(abi_serializer_max_time));
+
+
+            string data_str = fc::json::to_string(args, fc::time_point::maximum());
             action_info action_info1 = {
                     .account = action_trace_ptr->act.account,
                     .name = action_trace_ptr->act.name,
