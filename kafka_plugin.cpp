@@ -433,16 +433,12 @@ namespace eosio {
             get_code_params.account_name = action_trace_ptr->act.account;
 
             auto get_code_results = readonly.get_code(get_code_params, fc::time_point::now() + abi_serializer_max_time);
-
             if (!get_code_results.abi.has_value()){
                 return;
             }
             auto abi = std::make_shared<chain::abi_serializer>(std::move(get_code_results.abi.value()), chain::abi_serializer::create_yield_function(abi_serializer_max_time));
-
-            auto args = abi->binary_to_variant(abi->get_action_type(action_trace_ptr->act.name), action_trace_ptr->act.data, chain::abi_serializer::create_yield_function(abi_serializer_max_time));
-
-
-            string data_str = fc::json::to_string(args, fc::time_point::maximum());
+            auto data_variant = abi->binary_to_variant(abi->get_action_type(action_trace_ptr->act.name), action_trace_ptr->act.data, chain::abi_serializer::create_yield_function(abi_serializer_max_time));
+            string data_str = fc::json::to_string(data_variant, fc::time_point::maximum());
             action_info action_info1 = {
                     .account = action_trace_ptr->act.account,
                     .name = action_trace_ptr->act.name,
@@ -452,7 +448,6 @@ namespace eosio {
 
             action_trace_ptr->act.data.resize(data_str.size());
             action_trace_ptr->act.data.assign(data_str.begin(), data_str.end());
-            //elog("act.data=${e}",("e",action_trace_ptr->act.data));
         }
     }
 
