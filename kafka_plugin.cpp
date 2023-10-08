@@ -42,7 +42,7 @@ namespace eosio {
     using chain::transaction_id_type;
     using chain::packed_transaction;
     using chain::permission_level;
-
+    static auto _kafka_plugin = application::register_plugin<kafka_plugin>();
     using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
     class kafka_plugin_impl {
