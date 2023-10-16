@@ -194,9 +194,10 @@ namespace eosio {
             trasaction_info_st transactioninfo = trasaction_info_st{
                     .block_number = t->block_num,//chain.pending_block_state()->block_num,
                     .chain_id = this->chain_id,
-                    .trace =chain::transaction_trace_ptr(t)
+                    .trace =chain::transaction_trace_ptr(t),
+                    .block_time = chain.pending_block_time(),
             };
-            transactioninfo.block_time = chain.pending_block_time();
+
             trasaction_info_st &info_t = transactioninfo;
             //elog("###trxId = ${e}", ("e", t->id));
             queue(transaction_trace_queue, info_t);
