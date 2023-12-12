@@ -23,7 +23,7 @@ namespace eosio {
         if (compression_code != NULL) {
             if (rd_kafka_conf_set(*conf, "compression.codec", compression_code, errstr,
                     sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
+                fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
@@ -31,7 +31,14 @@ namespace eosio {
 
         if (rd_kafka_conf_set(*conf, "bootstrap.servers", brokers, errstr,
                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-            fprintf(stderr, "%s\n", errstr);
+            fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        // 设置消息大小限制为10MB
+        if (rd_kafka_conf_set(*conf, "message.max.bytes", "10000000", errstr,
+                              sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
             return KAFKA_STATUS_INIT_FAIL;
         }
 
