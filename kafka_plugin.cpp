@@ -99,6 +99,10 @@ namespace eosio {
 
         void _process_irreversible_block(const chain::block_state_ptr &);
 
+        void kafka_msg_flush();
+
+        void _kafka_msg_flush();
+
         void init();
 
         bool configured{false};
@@ -195,9 +199,8 @@ namespace eosio {
                     .block_number = t->block_num,//chain.pending_block_state()->block_num,
                     .chain_id = this->chain_id,
                     .trace =chain::transaction_trace_ptr(t),
-                    .block_time = chain.pending_block_time(),
             };
-
+            transactioninfo.block_time = chain.pending_block_time();
             trasaction_info_st &info_t = transactioninfo;
             //elog("###trxId = ${e}", ("e", t->id));
             queue(transaction_trace_queue, info_t);
@@ -277,7 +280,7 @@ namespace eosio {
                     transaction_trace_size > (max_queue_size * 0.75) ||
                     block_state_size > (max_queue_size * 0.75) ||
                     irreversible_block_size > (max_queue_size * 0.75)) {
-//            wlog("queue size: ${q}", ("q", transaction_metadata_size + transaction_trace_size ));
+                    wlog("queue size: ${q}", ("q", transaction_metadata_size + transaction_trace_size ));
                 } else if (done) {
                     ilog("draining queue, size: ${q}", ("q", transaction_metadata_size + transaction_trace_size));
                 }
@@ -308,6 +311,8 @@ namespace eosio {
                     process_irreversible_block(bs);
                     irreversible_block_state_process_queue.pop_front();
                 }
+
+                kafka_msg_flush();
 
                 if (transaction_metadata_size == 0 &&
                     transaction_trace_size == 0 &&
@@ -360,6 +365,20 @@ namespace eosio {
         try {
             if (start_block_reached) {
                 _process_irreversible_block(bs);
+            }
+        } catch (fc::exception &e) {
+            elog("FC Exception while processing irreversible block: ${e}", ("e", e.to_detail_string()));
+        } catch (std::exception &e) {
+            elog("STD Exception while processing irreversible block: ${e}", ("e", e.what()));
+        } catch (...) {
+            elog("Unknown exception while processing irreversible block");
+        }
+    }
+
+    void kafka_plugin_impl::kafka_msg_flush() {
+        try {
+            if (start_block_reached) {
+                _kafka_msg_flush();
             }
         } catch (fc::exception &e) {
             elog("FC Exception while processing irreversible block: ${e}", ("e", e.to_detail_string()));
@@ -472,6 +491,13 @@ namespace eosio {
 
     void kafka_plugin_impl::_process_irreversible_block(const chain::block_state_ptr &bs) {
     }
+
+    void kafka_plugin_impl::_kafka_msg_flush() {
+        producer->trx_kafka_flush(KAFKA_TRX_ACCEPT);
+        producer->trx_kafka_flush(KAFKA_TRX_APPLIED);
+        producer->trx_kafka_flush(KAFKA_TRX_TRANSFER);
+    }
+
 
     kafka_plugin_impl::kafka_plugin_impl()
             : producer(new kafka_producer) {

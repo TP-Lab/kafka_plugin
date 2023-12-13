@@ -34,6 +34,8 @@ namespace eosio {
 
         int trx_kafka_sendmsg(int trxtype, char *msgstr);
 
+        int trx_kafka_flush(int trxtype);
+
         int trx_kafka_destroy(void);
 
         rd_kafka_topic_t *trx_kafka_get_topic(int trxtype);
