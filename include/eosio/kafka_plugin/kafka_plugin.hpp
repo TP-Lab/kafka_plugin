@@ -3,21 +3,12 @@
  *
  */
 #pragma once
-
+#include <eosio/chain//application.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <appbase/application.hpp>
-#include <memory>
 
 namespace eosio {
-
-using kafka_plugin_impl_ptr = std::shared_ptr<class kafka_plugin_impl>;
-
 /**
- * Provides persistence to MongoDB for:
- * accounts
- * actions
- * block_states
- * blocks
+ * Provides persistence to kafka for:
  * transaction_traces
  * transactions
  *
@@ -25,22 +16,25 @@ using kafka_plugin_impl_ptr = std::shared_ptr<class kafka_plugin_impl>;
  *
  *   If cmake -DBUILD_kafka_plugin=true  not specified then this plugin not compiled/included.
  */
-class kafka_plugin : public plugin<kafka_plugin> {
-public:
-   APPBASE_PLUGIN_REQUIRES((chain_plugin))
+    class kafka_plugin : public plugin<kafka_plugin> {
+    public:
+        APPBASE_PLUGIN_REQUIRES((chain_plugin))
 
-   kafka_plugin();
-   virtual ~kafka_plugin();
+        kafka_plugin();
 
-   virtual void set_program_options(options_description& cli, options_description& cfg) override;
+        virtual ~kafka_plugin();
 
-   void plugin_initialize(const variables_map& options);
-   void plugin_startup();
-   void plugin_shutdown();
+        virtual void set_program_options(options_description &cli, options_description &cfg) override;
 
-private:
-   kafka_plugin_impl_ptr my;
-};
+        void plugin_initialize(const variables_map &options);
+
+        void plugin_startup();
+
+        void plugin_shutdown();
+
+    private:
+        unique_ptr<class kafka_plugin_impl> my;
+    };
 
 }
 
