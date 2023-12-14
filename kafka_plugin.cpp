@@ -201,7 +201,7 @@ namespace eosio {
                     .chain_id = this->chain_id,
                     .trace =chain::transaction_trace_ptr(t),
             };
-            transactioninfo.block_time = chain.pending_block_time();
+            //transactioninfo.block_time = chain.pending_block_time();
             trasaction_info_st &info_t = transactioninfo;
             //elog("###trxId = ${e}", ("e", t->id));
             queue(transaction_trace_queue, info_t);
