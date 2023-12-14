@@ -193,9 +193,9 @@ namespace eosio {
             auto &chain = chain_plug->chain();
             trasaction_info_st transactioninfo = trasaction_info_st{
                     .block_number = t->block_num,//chain.pending_block_state()->block_num,
+                    .block_time = chain.pending_block_time(),
                     .chain_id = this->chain_id,
                     .trace =chain::transaction_trace_ptr(t),
-                    .block_time = chain.pending_block_time(),
             };
 
             trasaction_info_st &info_t = transactioninfo;
