@@ -23,7 +23,7 @@ namespace eosio {
         if (compression_code != NULL) {
             if (rd_kafka_conf_set(*conf, "compression.codec", compression_code, errstr,
                     sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
+                fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
                 return KAFKA_STATUS_INIT_FAIL;
             }
         }
@@ -31,7 +31,21 @@ namespace eosio {
 
         if (rd_kafka_conf_set(*conf, "bootstrap.servers", brokers, errstr,
                               sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-            fprintf(stderr, "%s\n", errstr);
+            fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        // 设置消息大小限制为10MB
+        if (rd_kafka_conf_set(*conf, "message.max.bytes", "10000000", errstr,
+                              sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
+            return KAFKA_STATUS_INIT_FAIL;
+        }
+
+        // 100ms 发送
+        if (rd_kafka_conf_set(*conf, "queue.buffering.max.ms", "100", errstr,
+                              sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            fprintf(stderr, "rd_kafka_conf_set failed: %s\n", errstr);
             return KAFKA_STATUS_INIT_FAIL;
         }
 
@@ -129,6 +143,23 @@ namespace eosio {
         }
 
         rd_kafka_poll(rk, 0);
+        return KAFKA_STATUS_OK;
+
+    }
+
+    int kafka_producer::trx_kafka_flush(int trxtype) {
+        rd_kafka_t *rk;
+        if (trxtype == KAFKA_TRX_ACCEPT && accept_rk != NULL) {
+            rk = accept_rk;
+        } else if (trxtype == KAFKA_TRX_APPLIED && applied_rk != NULL) {
+            rk = applied_rk;
+        } else if (trxtype == KAFKA_TRX_TRANSFER && transfer_rk != NULL) {
+            rk = transfer_rk;
+        } else {
+            return KAFKA_STATUS_MSG_INVALID;
+        }
+
+        rd_kafka_flush(rk, 10000);
         return KAFKA_STATUS_OK;
 
     }
