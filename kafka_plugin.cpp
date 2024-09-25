@@ -53,7 +53,7 @@ namespace eosio {
 
         std::optional <boost::signals2::scoped_connection> accepted_block_connection;
         std::optional <boost::signals2::scoped_connection> irreversible_block_connection;
-        std::optional <boost::signals2::scoped_connection> accepted_transaction_connection;
+//        std::optional <boost::signals2::scoped_connection> accepted_transaction_connection;
         std::optional <boost::signals2::scoped_connection> applied_transaction_connection;
         chain_plugin *chain_plug;
         struct action_info {
@@ -79,13 +79,13 @@ namespace eosio {
 
         void applied_irreversible_block(const chain::block_state_ptr &);
 
-        void accepted_transaction(const chain::transaction_metadata_ptr &);
+//        void accepted_transaction(const chain::transaction_metadata_ptr &);
 
         void applied_transaction(const chain::transaction_trace_ptr &);
 
-        void process_accepted_transaction(const chain::transaction_metadata_ptr &);
+//        void process_accepted_transaction(const chain::transaction_metadata_ptr &);
 
-        void _process_accepted_transaction(const chain::transaction_metadata_ptr &);
+//        void _process_accepted_transaction(const chain::transaction_metadata_ptr &);
 
         void process_applied_transaction(const trasaction_info_st &);
 
@@ -178,17 +178,17 @@ namespace eosio {
         condition.notify_one();
     }
 
-    void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
-        try {
-            queue(transaction_metadata_queue, t);
-        } catch (fc::exception &e) {
-            elog("FC Exception while accepted_transaction ${e}", ("e", e.to_string()));
-        } catch (std::exception &e) {
-            elog("STD Exception while accepted_transaction ${e}", ("e", e.what()));
-        } catch (...) {
-            elog("Unknown exception while accepted_transaction");
-        }
-    }
+//    void kafka_plugin_impl::accepted_transaction(const chain::transaction_metadata_ptr &t) {
+//        try {
+//            queue(transaction_metadata_queue, t);
+//        } catch (fc::exception &e) {
+//            elog("FC Exception while accepted_transaction ${e}", ("e", e.to_string()));
+//        } catch (std::exception &e) {
+//            elog("STD Exception while accepted_transaction ${e}", ("e", e.what()));
+//        } catch (...) {
+//            elog("Unknown exception while accepted_transaction");
+//        }
+//    }
 
     void kafka_plugin_impl::applied_transaction(const chain::transaction_trace_ptr &t) {
         if (!t->producer_block_id.has_value())
@@ -289,7 +289,7 @@ namespace eosio {
                 // process transactions
                 while (!transaction_metadata_process_queue.empty()) {
                     const auto &t = transaction_metadata_process_queue.front();
-                    process_accepted_transaction(t);
+//                    process_accepted_transaction(t);
                     transaction_metadata_process_queue.pop_front();
                 }
 
@@ -334,18 +334,18 @@ namespace eosio {
     }
 
 
-    void kafka_plugin_impl::process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
-        try {
-            // always call since we need to capture setabi on accounts even if not storing transactions
-            _process_accepted_transaction(t);
-        } catch (fc::exception &e) {
-            elog("FC Exception while processing accepted transaction metadata: ${e}", ("e", e.to_detail_string()));
-        } catch (std::exception &e) {
-            elog("STD Exception while processing accepted tranasction metadata: ${e}", ("e", e.what()));
-        } catch (...) {
-            elog("Unknown exception while processing accepted transaction metadata");
-        }
-    }
+//    void kafka_plugin_impl::process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
+//        try {
+//            // always call since we need to capture setabi on accounts even if not storing transactions
+//            _process_accepted_transaction(t);
+//        } catch (fc::exception &e) {
+//            elog("FC Exception while processing accepted transaction metadata: ${e}", ("e", e.to_detail_string()));
+//        } catch (std::exception &e) {
+//            elog("STD Exception while processing accepted tranasction metadata: ${e}", ("e", e.what()));
+//        } catch (...) {
+//            elog("Unknown exception while processing accepted transaction metadata");
+//        }
+//    }
 
     void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
         try {
@@ -393,7 +393,7 @@ namespace eosio {
     void kafka_plugin_impl::process_accepted_block(const chain::block_state_ptr &bs) {
         try {
             if (!start_block_reached) {
-                if (bs->block_num >= start_block_num) {
+                if (bs->block_num() >= start_block_num) {
                     start_block_reached = true;
                 }
             }
@@ -409,12 +409,12 @@ namespace eosio {
         }
     }
 
-    void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
-        const auto &trx = t->packed_trx();
-        string trx_json = fc::json::to_string(trx, fc::time_point::maximum());
-        //elog("trx_json: ${e}",("e",trx_json));
-        producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char *) trx_json.c_str());
-    }
+//    void kafka_plugin_impl::_process_accepted_transaction(const chain::transaction_metadata_ptr &t) {
+//        const auto &trx = t->packed_trx();
+//        string trx_json = fc::json::to_string(trx, fc::time_point::maximum());
+//        //elog("trx_json: ${e}",("e",trx_json));
+//        producer->trx_kafka_sendmsg(KAFKA_TRX_ACCEPT, (char *) trx_json.c_str());
+//    }
 
     void kafka_plugin_impl::_process_applied_transaction(const trasaction_info_st &t) {
         uint64_t time = (t.block_time.time_since_epoch().count() / 1000);
@@ -622,10 +622,10 @@ namespace eosio {
                             my->applied_irreversible_block(bs);
                         }));
 
-                my->accepted_transaction_connection.emplace(
-                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
-                            my->accepted_transaction(t);
-                        }));
+//                my->accepted_transaction_connection.emplace(
+//                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
+//                            my->accepted_transaction(t);
+//                        }));
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
                                 [&](std::tuple<const std::shared_ptr <chain::transaction_trace> &, const std::shared_ptr<const chain::packed_transaction> &> t) {
@@ -648,7 +648,7 @@ namespace eosio {
     void kafka_plugin::plugin_shutdown() {
         my->accepted_block_connection.reset();
         my->irreversible_block_connection.reset();
-        my->accepted_transaction_connection.reset();
+//        my->accepted_transaction_connection.reset();
         my->applied_transaction_connection.reset();
         my.reset();
     }
