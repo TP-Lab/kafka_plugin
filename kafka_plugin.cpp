@@ -52,8 +52,10 @@ namespace eosio {
         ~kafka_plugin_impl();
 
 //        std::optional <boost::signals2::scoped_connection> accepted_block_connection;
-        std::optional <boost::signals2::scoped_connection> irreversible_block_connection;
+//        std::optional <boost::signals2::scoped_connection> irreversible_block_connection;
 //        std::optional <boost::signals2::scoped_connection> accepted_transaction_connection;
+        signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
+
         std::optional <boost::signals2::scoped_connection> applied_transaction_connection;
         chain_plugin *chain_plug;
         struct action_info {
@@ -617,15 +619,16 @@ namespace eosio {
 //                            my->accepted_block(bs);
 //                        }));
 
-                my->irreversible_block_connection.emplace(
-                        chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
-                            my->applied_irreversible_block(bs);
-                        }));
+//                my->irreversible_block_connection.emplace(
+//                        chain.irreversible_block.connect([&](const chain::block_state_ptr &bs) {
+//                            my->applied_irreversible_block(bs);
+//                        }));
 
 //                my->accepted_transaction_connection.emplace(
 //                        chain.accepted_transaction.connect([&](const chain::transaction_metadata_ptr &t) {
 //                            my->accepted_transaction(t);
 //                        }));
+
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
                                 [&](std::tuple<const std::shared_ptr <chain::transaction_trace> &, const std::shared_ptr<const chain::packed_transaction> &> t) {
@@ -647,7 +650,7 @@ namespace eosio {
 
     void kafka_plugin::plugin_shutdown() {
 //        my->accepted_block_connection.reset();
-        my->irreversible_block_connection.reset();
+//        my->irreversible_block_connection.reset();
 //        my->accepted_transaction_connection.reset();
         my->applied_transaction_connection.reset();
         my.reset();
