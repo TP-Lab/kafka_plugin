@@ -353,9 +353,7 @@ namespace eosio {
 
     void kafka_plugin_impl::process_applied_transaction(const trasaction_info_st &t) {
         try {
-            if (start_block_reached) {
-                _process_applied_transaction(t);
-            }
+            _process_applied_transaction(t);
         } catch (fc::exception &e) {
             elog("FC Exception while processing applied transaction trace: ${e}", ("e", e.to_detail_string()));
         } catch (std::exception &e) {
