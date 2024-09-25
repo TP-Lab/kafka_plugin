@@ -42,6 +42,8 @@ namespace eosio {
     using chain::transaction_id_type;
     using chain::packed_transaction;
     using chain::permission_level;
+    using chain::packed_transaction_ptr;
+    using chain::transaction_trace_ptr;
     static auto _kafka_plugin = application::register_plugin<kafka_plugin>();
     using kafka_producer_ptr = std::shared_ptr<class kafka_producer>;
 
@@ -631,7 +633,7 @@ namespace eosio {
 
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
-                                [&](std::tuple<const transaction_trace_ptr &, const packed_transaction_ptr &> t) {
+                                [&](std::tuple<const chain::transaction_trace_ptr &, const chain::packed_transaction_ptr &> t) {
                                     my->applied_transaction(std::get<0>(t));
                                 }));
                 my->init();
