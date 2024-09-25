@@ -54,7 +54,7 @@ namespace eosio {
 //        std::optional <boost::signals2::scoped_connection> accepted_block_connection;
 //        std::optional <boost::signals2::scoped_connection> irreversible_block_connection;
 //        std::optional <boost::signals2::scoped_connection> accepted_transaction_connection;
-        signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
+//        signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
 
         std::optional <boost::signals2::scoped_connection> applied_transaction_connection;
         chain_plugin *chain_plug;
@@ -631,7 +631,7 @@ namespace eosio {
 
                 my->applied_transaction_connection.emplace(
                         chain.applied_transaction.connect(
-                                [&](std::tuple<const std::shared_ptr <chain::transaction_trace> &, const std::shared_ptr<const chain::packed_transaction> &> t) {
+                                [&](std::tuple<const transaction_trace_ptr &, const packed_transaction_ptr &> t) {
                                     my->applied_transaction(std::get<0>(t));
                                 }));
                 my->init();
