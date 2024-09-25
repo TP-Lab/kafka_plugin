@@ -632,7 +632,7 @@ namespace eosio {
 //                        }));
 
                 my->applied_transaction_connection.emplace(
-                        chain.applied_transaction.connect(
+                        chain->applied_transaction().connect(
                                 [&](std::tuple<const chain::transaction_trace_ptr &, const chain::packed_transaction_ptr &> t) {
                                     my->applied_transaction(std::get<0>(t));
                                 }));
