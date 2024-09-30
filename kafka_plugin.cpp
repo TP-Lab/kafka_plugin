@@ -496,9 +496,9 @@ namespace eosio {
     }
 
     void kafka_plugin_impl::_kafka_msg_flush() {
-        producer->trx_kafka_flush(KAFKA_TRX_ACCEPT);
+//        producer->trx_kafka_flush(KAFKA_TRX_ACCEPT);
         producer->trx_kafka_flush(KAFKA_TRX_APPLIED);
-        producer->trx_kafka_flush(KAFKA_TRX_TRANSFER);
+//        producer->trx_kafka_flush(KAFKA_TRX_TRANSFER);
     }
 
 
